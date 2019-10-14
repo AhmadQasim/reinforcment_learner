@@ -1,4 +1,6 @@
 import uuid
+import numpy as np
+import gym
 
 class ProductItem():
     def __init__(self, item_type, production_time, expire_time):
@@ -22,40 +24,26 @@ class ProductItem():
     def step(self):
         self.age += 1
 
-class ProducerItem():
-    def __init__(self, product, amount, usebatch):
-        self._item = ProductItem(product)
-        self._amount = amount
-        self.usebatch = usebatch
 
-class ConsumerItem():
-    def __init__(self, product, amount, fresh_thresh):
-        self._item = ProductItem()
-        self._amount = amount
-        self._fresh_thresh = fresh_thresh
+class Order():
+    def __init__(self, item_type):
+        self._item_type = item_type
+        self.is_done = False
         self.waiting = 0
 
     def step(self):
-        self.waiting += 1
+        if not self.is_done:
+            self.waiting += 1
 
 class Inventory():
     def __init__(self):
         self._products = {}
-        self._wastes = []
-        self._producer_model = ProducerModel()
-        self._consumer_model = ConsumerModel()
 
     def add(self, product):
         self._products[product._id] = product
         
     def take(self, product_id):
         return self._products.pop(product_id)
-
-    def discard(self):
-        for product in self._products.items():
-            if not product.is_fresh():
-                waste = self._products.pop(product._id)
-                self._waste_queue.push(waste)
     
     def products(self):
         return self._products
@@ -65,103 +53,253 @@ class Inventory():
         for item in self._products.items():
             item.step()
         
-        product = self._producer_model.step()
-        self.add(product)
-
-        product = self._consumer_model.step()
-        self.take(product)
-
-        self.discard()
-
-        return self._products, self._wastes
 
 class ProducerModel():
-    def __init__(self, oven_max_volume, product_min_batch):
-        self._oven_max_volume = oven_max_volume
-        self._product_min_batch = product_min_batch
-
-        # wait for oven ready or batch baking
-        self._preparation_queue()
-
+    def __init__(self):
         # baking in the oven
-        self._oven_queue()
+        self._production_queue()
 
         # product is ready
-        self._production_queue()
-        
-    def is_oven_full(self):
-        return len(self._oven_queue)== self._oven_max_volume
+        self.ready_queue()
 
-    def is_oven_empty(self):
-        return len(self._oven_queue)==0
-    
-    def products_in_oven(self):
-        return self._oven_queue()
-    
-    def start_producing(self, products):
-        while not self.is_oven_full():
-            product = products.pop()
-            if not product["usebatch"]:
-                self._oven_queue.push(product)
-            elif product["usebatch"]:
-                if self._preperation_queue.get(product._id["amount"], 0) >self._product_min_batch:
-                    self._oven_queue.push(product)
+    def is_busy(self):
+        return len(self._production_queue)>0
 
-        for product in products:
-            self._preparation_queue.push(product)
-
-    def update_product(self):
-        for item in self._oven_queue():
-            item.step()
-        for product in self._oven_queue():
-            if product.is_done():
-                self._production_queue.push(product)
-                self._oven_queue.pop(product)
-
-    def step(self, products):
-        """
-        products: list[ProducerItem]  ProducerItem: (name, amount, usebatch)
-        """
-        self.update_product()
-        self.start_producing(products)
+    def production_queue(self):
         return self._production_queue()
+
+    def ready_products(self):
+        return self.ready_queue
+
+    def is_all_ready(self):
+        for item in self._production_queue:
+            if not item.is_done():
+                return False
+        return True
+
+    def start_producing(self, products):
+        """
+        products: [item_type, item_number]
+        """
+        if self.is_busy():
+            return
+
+        for item_type, item_number in products:
+            
+            if item_type not in self._products_lists:
+                self._products_lists[item] = ProductItem()
+
+            # TODO create new instances with "age" attributes set to 0, but use corresponding uuid
+            product_item = ProductItem(item_type, production_time, expire_time)
+
+            self._production_queue.push(product_item)
+        
+    def step(self):
+        # update
+        for item in self._production_queue:
+            item.step()
+
+        if self.is_all_ready(): # check status
+            self.ready_queue, self._production_queue = self._production_queue, [] # clear if ready
+
+            # self.inventory.add(self.ready_queue)
 
         
 class ConsumerModel():
-    def __init__(self):
-        self._consumer_queue = {}
-        self._consumer_finished_list = list()
+    def __init__(self, product_list):
+        self._order_queues = []
+        self._consumer_queue = []
+        self._product_list = product_list
 
-    def has_no_consumer(self):
-        return len(self._consumer_queue)==0
-
-    def is_waiting(self):
-        return len(self._consumer_queue)>0
-
-    def done_consume(self):
-        return self._consumer_finished_list
-
-    def consume(self):
+    def consumer_queue(self):
         return self._consumer_queue()
 
-    def place_order(self, products):
-        for product in products:
-            self._consumer_queue.push(product)
+    def sample_from_product_list(self):
+        # random samples from all products(currently available and not available)
+        num_samples = np.random.random_integers(0, len(self._product_list))
+        sample_indices = np.random.choice(len(self._product_list), num_samples, replace=True)
+        return self._product_list[sample_indices]
 
-    def cancel_order(self, products):
-        for product in products:
-            self._consumer_queue.pop(product)
+    def sample_from_existing(self, inventory_products):
+        # random samples from products that are currently available
+        num_samples = np.random.random_integers(0, len(inventory_products))
+        sample_indices = np.random.choice(len(inventory_products), num_samples, replace=False)
+        return inventory_products[sample_indices]
 
-    def take(self):
-        for product in self._consumer_queue:
-            if product in self._production_queue and self._production_queue[product].is_fresh():
-                self._production_queue.pop(product)
-                self._consumer_queue.pop(product)
+    def sample_from_nonexisting(self, inventory_products):
+        # random samples from products that are currently not available
+        nonexisting = []
+        for item in self._product_list:
+            if not item in inventory_products:
+                nonexisting.append(item)
+        
+        num_samples = np.random.random_integers(0, len(nonexisting))
+        sample_indices = np.random.choice(len(nonexisting), num_samples, replace=True)
+        return self._product_list[sample_indices]
 
-    def step(self, products, withdraw_products):
+    def add_random_orders(self, inventory_products):
+
+        if np.random.rand()>0.8:
+            self._order_queue.extend(self.sample_from_existing())
+        else:
+            self._order_queue.extend(self.sample_from_nonexisting())
+    
+        for order in self._order_queue:
+            if order in inventory_products:
+                self.order_queue.push(order)
+                self.consumer_queue.add(order)
+
+        return self.consumer_queue, self.order_queue
+
+    def step(self):
+
+        for order in self._order_queues:
+            order.step()
+
+
+
+class InventoryTrackingEnv(gym.Env):
+    def __init__(self, producer_model, inventory, consumer_model):
+        self.action_space
+        self.states_space
+        self.reward_range
+
+        self._producer_model = producer_model
+        self._inventory = inventory
+        self._consumer_model = consumer_model
+
+    def step(self, action):
+        items = self._producer_model.ready_products()
+        
+        self._inventory.add(items)
+        
+        items = self._inventory.products()
+
+        items, orders = self._consumer_model.add_random_orders(items)
+        
+        self._inventory.take(items)
+
+        self._producer_model.start_producing(action)
+        
+        self._producer_model.step()
+        
+        self._consumer_model.step()
+        
+        self._inventory.step()
+
+
+        states = self.get_state_summary()
+
+        reward = reward_function()
+
+        return states, reward, done, info
+
+    def reset(self):
+        self._producer_model.reset()
+        self._consumer_model.reset()
+        self._inventory.reset()
+        return self.get_state_summary()
+
+    def render(self):
+        pass
+    def close(self):
+        pass
+    def seed(self, seed=None):
+        pass
+
+    def get_state_summary(self):
+        # gather states from producer, inventory and consumer
+        states = {}
+        states["consumer_queue"] = self.consumer_model.consumer_queue
+
+
+class Metric():
+    def __init__(self, env):
+        self._env = env
+        
+        self._previous_state = {}
+        self._current_state = {}
+
+        self.state_descriptor={}
+        self.metric = {}
+
+    def reset(self):
+        return self.metric
+
+    def get_state_descriptor(self, previous_state, current_state):
+        # state_metric
+        self.state_descriptor["num_of_orders"] = len(current_state["order_queue"])
+        self.state_descriptor["num_consumptions"] = len(current_state["consumer_queue"])
+        self.state_descriptor["num_of_remaining_products"] = len(current_state["products"])
+
+        fresh_states = 0
+        for item in current_state["products"]:
+            fresh_states += item.age
+        self.state_descriptor["fresh_states_of_remaining"] = fresh_states
+
+        waiting_time = 0
+        for order in current_state["order_queue"]:
+            waiting_time += order.waiting
+        self.state_descriptor["sum_of_waiting_time"] = waiting_time
+
+        # step_metric
+        self.state_descriptor["num_new_orders"] = len(current_state["order_queue"]) - len(previous_state["order_queue"])
+        self.state_descriptor["num_new_products"] = len(current_state["products"]) - len(previous_state["products"])
+
+        return self.state_descriptor
+
+
+    def calculate_metric_function(self, previous_state, current_state):
+        self.get_state_descriptor(preivous_state, current_state)
+
+        self.metric["remaining_products"] = - self.state_descriptor["num_of_remaining_products"]
+
+        # weighted sum from all metrics
+        self.metric["episode_metric"] = f1(self.state_descriptor)
         """
-        products: list[ConsumerItem] ConsumerItem: (product, amount, isfresh)
+        f1 : -num_remaining_products + fresh_states_of_remaining + num_total_cosumption - num_remaining_orders + num_total_production
         """
-        self.place_order(products)
-        self.cancel_order(withdraw_products)
-        return self.consume()
+
+
+    def step(self):
+        self._current_state = self._env.get_state_summary()
+
+        if self._previous_state:
+            self.calculate_metric_function(self._previous_state, self._current_state)
+        
+        self._previous_state.update(self._current_state)
+    
+        if is_done:
+            self.get_final_metric()
+
+        return self.metric
+
+
+class Agent(object):
+    def __init__(self, action_space):
+        self.action_space = action_space
+    
+    def act(self, states):
+        isbusy = states["isbusy"]
+        isfresh = states["products"]["is_fresh"]
+        order = states["oders"]["is_empty"]
+        act = f(states, self.action_space)
+        return act
+
+
+def train(agent, env, metric, num_episodes, num_steps):
+    for episode in range(num_episodes):
+
+        states = env.reset()
+        metric.reset()
+
+        for step in range(num_steps):
+
+            action = agent.act(states)
+
+            states, reward, done, info = env.step(action)
+            
+            metric.step()
+
+            if done:
+                break
