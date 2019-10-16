@@ -49,7 +49,7 @@ def do_rollout(agent, env, num_steps, render=False):
         if render:
             env.render()
             pass
-        a = agent.act(ob[1:])
+        a = agent.act(ob)
         (ob, reward, done, _info) = env.step(a)
         # print(ob, reward, a)
         total_rew += reward
@@ -69,7 +69,7 @@ if __name__ == '__main__':
     # env.seed(1)
     # np.random.seed(10)
     params = dict(n_iter=15, batch_size=25, elite_frac=0.2)
-    num_steps = 50
+    num_steps = 25
 
     # You provide the directory to write to (can be an existing
     # directory, but can't contain previous monitor results. You can
@@ -98,7 +98,7 @@ if __name__ == '__main__':
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
         if i==0:
             agent = BinaryActionLinearPolicy(iterdata['theta_init'])
-            do_rollout(agent, env, 100, render=True)
+            do_rollout(agent, env, 15, render=True)
 
 
     agent = BinaryActionLinearPolicy(iterdata['theta_mean'])

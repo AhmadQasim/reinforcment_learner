@@ -1,0 +1,29 @@
+
+
+    # def get_step_metric(self):
+    #     self.current_state = self.get_state_summary(self.current_state)
+
+    #     if self.previous_state:
+    #         for key, item in self.current_state.items():
+    #             self.step_metric[key] = self.metric_function(self.current_state[key], self.previous_state[key])
+
+    #     self.previous_state.update(self.current_state)
+
+
+    # def get_final_metric(self):
+    #     self.current_state = self.get_state_summary(self.current_state)
+
+    #     self.episode_metric["total_consumption"] = len(self._consumer_model.consumer_queue)
+    #     self.episode_metric["remaining_productions"] = len(self._inventory.products)
+
+    #     self.episode_metric["total_productions"] += each_state
+
+
+
+
+    # def take(self):
+    #     for product in self.order_queues:
+    #         if product in self.inventory_products and self.inventory_products[product].is_fresh():
+    #             self.inventory_products.pop(product)
+    #             self.order_queues.pop(product)
+    #             self._consumer_queue.push(product)
