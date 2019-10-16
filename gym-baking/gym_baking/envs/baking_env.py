@@ -53,6 +53,7 @@ class BakingEnv(gym.Env):
         self.observation_space = np.zeros((2,))
         self.seed()
 
+        self.timestamp = 0
         self.state = None
         self.fig = None
         self.axes = None
@@ -64,20 +65,26 @@ class BakingEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
-        timestamp, prev_inventory, prev_demand = state #possible issue about time ordering
-        # prev_inventory = curr_inventory; prev_demand = curr_demand
-        new_demand = self.buyer.binary_buy(timestamp)
-        # print(int(new_demand))
+        prev_inventory, prev_demand = state
+
+        # generate random orders
+        new_demand = self.buyer.binary_buy(self.timestamp)
         curr_demand = prev_demand + new_demand
+
+        # produce new items
         curr_inventory = prev_inventory + int(action)
+        
+        # update states
         inventory = max(curr_inventory - curr_demand, 0)
         demand = max(curr_demand - curr_inventory, 0)
-        timestamp += 1
-        self.state = (timestamp, inventory, demand)
+        self.state = (inventory, demand)
         self.acts.append([action, new_demand])
-        self.obs.append([self.state[1], self.state[2]])
+        self.obs.append([self.state[0], self.state[1]])
+        self.timestamp += 1
 
         done = inventory >= self.inventory_threshold or demand > self.demand_threshold
+        
+        # reward function
         if not done:
             if prev_demand>0:
                 if action==1:
@@ -91,22 +98,16 @@ class BakingEnv(gym.Env):
                     reward = -1 if new_demand else -2
             else:
                 reward = 2 if action==new_demand else -2
-
-            # reward = 1 - (inventory + demand)
         else:
             reward = 0
 
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = np.insert(self.np_random.randint(0, 10, 2), 0, 0)
+        self.timestamp = 0
+        self.state = self.np_random.randint(0, 10, 2)
         self.obs = list()
         self.acts = list()
-        # if self.axes is not None: self.axes[0].clear();self.axes[1].clear()
-        if self.fig is not None:
-            plt.close()
-            self.fig = None
-            self.axes = None
         return np.array(self.state)
 
     def render(self, mode='human', close=False):
@@ -129,34 +130,13 @@ class BakingEnv(gym.Env):
         self.axes[1].legend()
 
         plt.draw()
-        plt.pause(0.0001)
+        plt.pause(0.001)
 
-        return self._fig2data(self.fig)
-
-    def _fig2data(self, fig):
-        """
-        @brief Convert a Matplotlib figure to a 4D numpy array with RGBA channels and return it
-        @param fig a matplotlib figure
-        @return a numpy 3D array of RGBA values
-        """
-        # draw the renderer
-        fig.canvas.draw ( )
-    
-        # Get the RGBA buffer from the figure
-        w,h = fig.canvas.get_width_height()
-        buf = np.fromstring ( fig.canvas.tostring_argb(), dtype=np.uint8 )
-        buf.shape = ( w, h,4 )
-    
-        # canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
-        buf = np.roll ( buf, 3, axis = 2 )
-        return buf      
-
+        # return image (Numpy Array) representation of the rendered figure
+        return np.array(self.fig.canvas.renderer.buffer_rgba())
 
     def close(self):
-        # plt.savefig('result.png')
-        print("close")
         if self.fig:
             plt.close()
-            print("closed")
             self.fig = None
             self.axes = None

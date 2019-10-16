@@ -1,11 +1,3 @@
-
-
-# class CEMAgent(object):
-#     def __init__(self, action_space):
-#         self.action_space = action_space
-#     def act(self, observation, reward, done):
-#         return self.action_space.sample()
-
 from __future__ import print_function
 
 import gym
@@ -14,7 +6,7 @@ import numpy as np
 from six.moves import cPickle as pickle
 import json, sys, os
 from os import path
-from _policies import BinaryActionLinearPolicy # Different file so it can be unpickled
+from _policies import BinaryActionLinearPolicy
 from _policies import BinaryActionNonLinearPolicy
 import argparse
 import gym_baking
@@ -48,12 +40,9 @@ def do_rollout(agent, env, num_steps, render=False):
     for t in range(num_steps):
         if render:
             env.render()
-            pass
         a = agent.act(ob)
         (ob, reward, done, _info) = env.step(a)
-        # print(ob, reward, a)
         total_rew += reward
-        # if render and t%3==0: env.render()
         if done: break
     return total_rew, t+1
 
@@ -66,10 +55,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     env = gym.make(args.target)
-    # env.seed(1)
-    # np.random.seed(10)
     params = dict(n_iter=15, batch_size=25, elite_frac=0.2)
-    num_steps = 25
+    num_steps = 50
 
     # You provide the directory to write to (can be an existing
     # directory, but can't contain previous monitor results. You can
@@ -98,12 +85,12 @@ if __name__ == '__main__':
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
         if i==0:
             agent = BinaryActionLinearPolicy(iterdata['theta_init'])
-            do_rollout(agent, env, 15, render=True)
+            do_rollout(agent, env, 100, render=True)
 
 
     agent = BinaryActionLinearPolicy(iterdata['theta_mean'])
-    if args.display: do_rollout(agent, env, 100, render=True)
-        # writefile('agent-%.4i.pkl'%i, str(pickle.dumps(agent, -1)))
+    if args.display:
+        do_rollout(agent, env, 100, render=True)
 
     # Write out the env at the end so we store the parameters of this
     # environment.
