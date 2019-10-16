@@ -163,6 +163,7 @@ class InventoryTrackingEnv(gym.Env):
         self.action_space
         self.states_space
         self.reward_range
+        self.viewer = None
 
         self._producer_model = producer_model
         self._inventory = inventory
@@ -201,7 +202,15 @@ class InventoryTrackingEnv(gym.Env):
         return self.get_state_summary()
 
     def render(self):
-        pass
+        if self.viewer is None:
+            fig, self.viewer = plt.subplots(2,1)
+            plt.ion()
+            plt.show()
+        
+        self.viewer[0].plot()
+        self.viewer[1].plot()
+        return self.fig.tonumpy()
+
     def close(self):
         pass
     def seed(self, seed=None):

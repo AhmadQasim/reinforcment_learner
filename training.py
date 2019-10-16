@@ -3,13 +3,14 @@ import os
 import gym
 from gym import wrappers
 from agents.random_agent import RandomAgent
-import gym_baking
+# import gym_baking
 # from agents.cem import CEMAgent
 
 
 env_id = 'CartPole-v0'
+env_id = 'gym_baking:Baking-v0'
 num_episodes = 10
-num_timesteps = 50
+num_timesteps = 10
 
 outdir = './agent-results/'
 if not os.path.exists(outdir):

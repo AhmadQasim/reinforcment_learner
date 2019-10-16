@@ -5,7 +5,11 @@ class BinaryActionLinearPolicy(object):
         self.b = theta[-1]
         # print(theta)
     def act(self, ob):
-        y = ob.dot(self.w) + self.b
+        try:
+            y = ob.dot(self.w) + self.b
+        except:
+            ob = ob[1:]
+            y = ob.dot(self.w) + self.b
         a = int(y < 0)
         return a
 

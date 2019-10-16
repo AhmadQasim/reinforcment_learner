@@ -4,7 +4,7 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 
-from .demand_function import DemandDecision
+from ._demand_function import DemandDecision
 import matplotlib.pyplot as plt
 
 class BakingEnv(gym.Env):
@@ -37,7 +37,7 @@ class BakingEnv(gym.Env):
 
     metadata = {
         'render.modes': ['human', 'rgb_array'],
-        'video.frames_per_second': 50
+        'video.frames_per_second': 50,
     }
 
     def __init__(self):
@@ -54,7 +54,8 @@ class BakingEnv(gym.Env):
         self.seed()
 
         self.state = None
-        self.viewer = None
+        self.fig = None
+        self.axes = None
 
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -101,32 +102,61 @@ class BakingEnv(gym.Env):
         self.state = np.insert(self.np_random.randint(0, 10, 2), 0, 0)
         self.obs = list()
         self.acts = list()
-        if self.viewer is not None: self.viewer.clear();self.viewer1.clear()
+        # if self.axes is not None: self.axes[0].clear();self.axes[1].clear()
+        if self.fig is not None:
+            plt.close()
+            self.fig = None
+            self.axes = None
         return np.array(self.state)
 
     def render(self, mode='human', close=False):
         screen_width = 600
         screen_height = 400
 
-
-        if self.viewer is None:
-            fig = plt.figure()
-            self.viewer = fig.add_subplot(211)
-            self.viewer1 = fig.add_subplot(212)
+        if self.fig is None or self.axes is None:
+            self.fig, self.axes = plt.subplots(2,1)
             plt.ion()
-            plt.show()
-        # print(self.obs[-1])
-        self.viewer.plot([x[0] for x in self.obs], color='green')
-        self.viewer.plot([x[1] for x in self.obs], color='red')
-        self.viewer1.plot([x[0] for x in self.acts], color='green')
-        self.viewer1.plot([x[1] for x in self.acts], color='red')
-        plt.pause(0.1)
+
+        self.axes[0].clear()
+        self.axes[1].clear()
+
+        self.axes[0].plot([x[0] for x in self.obs], color='green', label='demand')[0]
+        self.axes[0].plot([x[1] for x in self.obs], color='red', label='inventory')[0]
+        self.axes[0].legend()
+
+        self.axes[1].plot([x[0] for x in self.acts], color='green', label='do not bake')
+        self.axes[1].plot([x[1] for x in self.acts], color='red', label='bake')
+        self.axes[1].legend()
+
+        plt.draw()
+        plt.pause(0.0001)
+
+        return self._fig2data(self.fig)
+
+    def _fig2data(self, fig):
+        """
+        @brief Convert a Matplotlib figure to a 4D numpy array with RGBA channels and return it
+        @param fig a matplotlib figure
+        @return a numpy 3D array of RGBA values
+        """
+        # draw the renderer
+        fig.canvas.draw ( )
+    
+        # Get the RGBA buffer from the figure
+        w,h = fig.canvas.get_width_height()
+        buf = np.fromstring ( fig.canvas.tostring_argb(), dtype=np.uint8 )
+        buf.shape = ( w, h,4 )
+    
+        # canvas.tostring_argb give pixmap in ARGB mode. Roll the ALPHA channel to have it in RGBA mode
+        buf = np.roll ( buf, 3, axis = 2 )
+        return buf      
 
 
     def close(self):
-        plt.savefig('result.png')
-        plt.ioff()
-        plt.show()
-        plt.close()
-
-
+        # plt.savefig('result.png')
+        print("close")
+        if self.fig:
+            plt.close()
+            print("closed")
+            self.fig = None
+            self.axes = None
