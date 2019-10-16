@@ -1,6 +1,6 @@
 import gym
 
-gym.register('CartPole-v1')
+# gym.register('CartPole-v1')
 
 env = gym.make('CartPole-v0')
 env.reset()

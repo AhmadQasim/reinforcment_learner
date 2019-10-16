@@ -4,7 +4,7 @@ import gym
 from gym import spaces, logger
 from gym.utils import seeding
 
-from .demand_function import DemandDecision
+from ._demand_function import DemandDecision
 import matplotlib.pyplot as plt
 
 class BakingEnv(gym.Env):

@@ -7,7 +7,7 @@ import gym_baking
 # from agents.cem import CEMAgent
 
 
-env_id = 'CartPole-v0'
+env_id = 'Baking-v0'
 num_episodes = 10
 num_timesteps = 50
 
