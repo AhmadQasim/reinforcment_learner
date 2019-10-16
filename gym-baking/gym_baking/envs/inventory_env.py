@@ -29,11 +29,11 @@ class Order():
     def __init__(self, item_type):
         self._item_type = item_type
         self.is_done = False
-        self.waiting = 0
+        self.waiting_time = 0
 
     def step(self):
         if not self.is_done:
-            self.waiting += 1
+            self.waiting_time += 1
 
 class Inventory():
     def __init__(self):
@@ -57,32 +57,18 @@ class Inventory():
 class ProducerModel():
     def __init__(self):
         # baking in the oven
-        self._production_queue()
+        self._production_queue = list()
 
         # product is ready
         self.ready_queue()
 
-    def is_busy(self):
-        return len(self._production_queue)>0
-
-    def production_queue(self):
-        return self._production_queue()
-
-    def ready_products(self):
-        return self.ready_queue
-
     def is_all_ready(self):
-        for item in self._production_queue:
-            if not item.is_done():
-                return False
-        return True
+        return all([x.is_done for x in self._production_queue])
 
-    def start_producing(self, products):
-        """
-        products: [item_type, item_number]
-        """
+    def start_producing(self, product_type, num_product):
+
         if self.is_busy():
-            return
+            return False
 
         for item_type, item_number in products:
             
@@ -94,6 +80,8 @@ class ProducerModel():
 
             self._production_queue.push(product_item)
         
+        return True
+
     def step(self):
         # update
         for item in self._production_queue:
