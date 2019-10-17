@@ -100,14 +100,11 @@ class ProducerModel():
         # return self.ready_queue
 
     def is_all_ready(self):
-        for item in self._production_queue:
-            if not item.is_done():
-                return False
-        return True
+        return all([x.is_done for x in self._production_queue])
 
     def start_producing(self, products):
         """
-        products: [item_type, item_number]
+        products: num_products
         """
 
         # if self.is_all_ready(): # check status
