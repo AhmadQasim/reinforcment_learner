@@ -7,7 +7,6 @@ from six.moves import cPickle as pickle
 import json, sys, os
 from os import path
 from _policies import BinaryActionLinearPolicy
-from _policies import BinaryActionNonLinearPolicy
 import argparse
 import gym_baking
 
@@ -55,6 +54,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     env = gym.make(args.target)
+    env.seed(1)
     params = dict(n_iter=15, batch_size=25, elite_frac=0.2)
     num_steps = 50
 

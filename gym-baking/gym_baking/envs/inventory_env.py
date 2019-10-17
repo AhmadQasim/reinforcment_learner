@@ -1,6 +1,9 @@
 import uuid
 import numpy as np
 import gym
+from gym import spaces
+import matplotlib.pyplot as plt
+from gym.utils import seeding
 
 class ProductItem():
     def __init__(self, item_type, production_time, expire_time):
@@ -13,7 +16,7 @@ class ProductItem():
         self._expire_time = expire_time
 
         # age of product, if negative it is still being produced
-        self._age = -production_time
+        self.age = -production_time
     
     def is_done(self):
         return self.age > 0
@@ -37,48 +40,80 @@ class Order():
 
 class Inventory():
     def __init__(self):
-        self._products = {}
+        self._products = []
+
+    def reset(self):
+        self._products = []
+    def get_state(self):
+        state = {}
+        state["num_products"] = len(self._products)
+        return state
 
     def add(self, product):
-        self._products[product._id] = product
+        # self._products[product._id] = product
+        for item in product:
+            self._products.append(item)
         
     def take(self, product_id):
-        return self._products.pop(product_id)
-    
+        # return self._products.pop(product_id)
+        for i in range(product_id):
+            self._products.pop()
+
     def products(self):
         return self._products
 
     def step(self):
         # update items
-        for item in self._products.items():
+        # for item in self._products.items():
+        #     item.step()
+        for item in self._products:
             item.step()
-        
 
 class ProducerModel():
     def __init__(self):
         # baking in the oven
-        self._production_queue = list()
+        self._production_queue = []
 
         # product is ready
-        self.ready_queue()
+        self.ready_queue = []
+
+    def reset(self):
+        self._production_queue = []
+        self.ready_queue = []
+
+    def get_state(self):
+        state = {}
+        state["num_production"] = len(self._production_queue)
+        state["num_ready"] = len(self.ready_queue)
+        return state
 
     def is_all_ready(self):
         return all([x.is_done for x in self._production_queue])
 
-    def start_producing(self, product_type, num_product):
+    # def start_producing(self, product_type, num_product):
+
+    def start_producing(self, products):
+        """
+        products: [item_type, item_number]
+        """
+
+        # if self.is_all_ready(): # check status
+        #     self.ready_queue, self._production_queue = self._production_queue, [] # clear if ready
 
         if self.is_busy():
             return False
 
-        for item_type, item_number in products:
+        # for item_type, item_number in products:
             
-            if item_type not in self._products_lists:
-                self._products_lists[item] = ProductItem()
+        #     if item_type not in self._products_lists:
+        #         self._products_lists[item] = ProductItem()
 
-            # TODO create new instances with "age" attributes set to 0, but use corresponding uuid
-            product_item = ProductItem(item_type, production_time, expire_time)
+        #     # TODO create new instances with "age" attributes set to 0, but use corresponding uuid
+        #     product_item = ProductItem(item_type, production_time, expire_time)
 
-            self._production_queue.push(product_item)
+        #     self._production_queue.push(product_item)
+        for i in range(products):
+            self._production_queue.append(ProductItem('type', 5, 100))
         
         return True
 
@@ -94,10 +129,25 @@ class ProducerModel():
 
         
 class ConsumerModel():
-    def __init__(self, product_list):
-        self._order_queues = []
+    def __init__(self):
+        self.order_queue = []
         self._consumer_queue = []
-        self._product_list = product_list
+        # self._product_list = product_list
+
+    def reset(self):
+        self.order_queue = []
+        self._consumer_queue = []
+        self._num_new_order = np.random.randint(0,2)
+
+    def get_state(self):
+        state = {}
+        state["num_orders"] = len(self.order_queue)
+        state["num_new_orders"] = self._num_new_order
+        return state
+
+    def sample_demo(self):
+        self._num_new_order = np.random.randint(0,3)
+        return self._num_new_order
 
     def consumer_queue(self):
         return self._consumer_queue()
@@ -126,88 +176,168 @@ class ConsumerModel():
         return self._product_list[sample_indices]
 
     def add_random_orders(self, inventory_products):
+        n = self.sample_demo()
+        for i in range(n):
+            self.order_queue.append(Order('type'))
 
-        if np.random.rand()>0.8:
-            self._order_queue.extend(self.sample_from_existing())
-        else:
-            self._order_queue.extend(self.sample_from_nonexisting())
+        total_order = len(self.order_queue)
+        available = len(inventory_products)
+
+        take = available if available<=total_order else total_order
+
+        remain = total_order - take
+        print(take, remain)
+
+        for i in range(take):
+            self.order_queue.pop()
+
+        return take, remain
+
+
+        # if np.random.rand()>0.8:
+        #     self.order_queue.extend(self.sample_from_existing())
+        # else:
+        #     self.order_queue.extend(self.sample_from_nonexisting())
     
-        for order in self._order_queue:
-            if order in inventory_products:
-                self.order_queue.push(order)
-                self.consumer_queue.add(order)
+        # for order in self.order_queue:
+        #     if order in inventory_products:
+        #         self.order_queue.push(order)
+        #         self.consumer_queue.add(order)
 
-        return self.consumer_queue, self.order_queue
+        # return self.consumer_queue, self.order_queue
+
+    def get_state(self):
+        state = {}
+        state["num_new_orders"] = self._num_new_order
+        state["num_orders"] = len(self.order_queue)
+        return state
 
     def step(self):
-
-        for order in self._order_queues:
+        for order in self.order_queue:
             order.step()
 
 
 
 class InventoryTrackingEnv(gym.Env):
-    def __init__(self, producer_model, inventory, consumer_model):
-        self.action_space
-        self.states_space
-        self.reward_range
-        self.viewer = None
+    def __init__(self):
+        self.action_space = spaces.Discrete(15)
+        self.states_space = np.zeros((2,))
+        # self.reward_range
 
-        self._producer_model = producer_model
-        self._inventory = inventory
-        self._consumer_model = consumer_model
+        self._producer_model = ProducerModel()
+        self._inventory = Inventory()
+        self._consumer_model = ConsumerModel()
+
+        self.timestamp = 0
+        self.state = dict()
+        self.state_history = None
+        self.fig = None
+        self.axes = None
 
     def step(self, action):
+        assert self.action_space.contains(action)
+        self.act = action
+ 
+        self.timestamp += 1
         items = self._producer_model.ready_products()
-        
         self._inventory.add(items)
-        
         items = self._inventory.products()
-
         items, orders = self._consumer_model.add_random_orders(items)
-        
         self._inventory.take(items)
-
+ 
         self._producer_model.start_producing(action)
-        
         self._producer_model.step()
-        
         self._consumer_model.step()
-        
         self._inventory.step()
-
-
+ 
         states = self.get_state_summary()
-
-        reward = reward_function()
-
-        return states, reward, done, info
+        self.accumulate_state(states)
+ 
+        done = self.timestamp>100
+ 
+        return states, 0, done, {}
 
     def reset(self):
+        if plt.get_fignums():
+            plt.ioff()
+            plt.show()
+            self.fig = None
+            self.axes = None
+
+        self.timestamp = 0
         self._producer_model.reset()
         self._consumer_model.reset()
         self._inventory.reset()
+
+        self.state_history={}
+        self.acc_list = list()
+        self.act = 0
         return self.get_state_summary()
 
-    def render(self):
-        if self.viewer is None:
-            fig, self.viewer = plt.subplots(2,1)
+    def render(self, mode='human', close=False):
+        if not self.state_history:
+            return
+        screen_width = 600
+        screen_height = 400
+
+        if self.fig is None or self.axes is None:
+            self.fig, self.axes = plt.subplots(3,1)
             plt.ion()
-            plt.show()
-        
-        self.viewer[0].plot()
-        self.viewer[1].plot()
-        return self.fig.tonumpy()
+
+        self.axes[0].clear()
+        self.axes[1].clear()
+        self.axes[2].clear()
+
+        self.axes[0].plot(self.state_history["num_products"], label="inventory_products")
+        self.axes[0].plot(self.state_history["num_orders"], label="customer_orders")
+        self.axes[0].legend(loc="upper right")
+        self.axes[0].set_title("inventory")
+
+        self.axes[1].plot(self.state_history["num_new_production"], label="produce")
+        self.axes[1].plot(self.state_history["num_new_orders"], label="order")
+        self.axes[1].legend(loc="upper right")
+        self.axes[1].set_title("step actions")
+
+        self.axes[2].plot(self.state_history["num_production"], label="in baking")
+        self.axes[2].plot(self.state_history["num_ready"], label="done baking")
+        self.axes[2].legend(loc="upper right")
+        self.axes[2].set_title("producer model")
+
+        plt.subplots_adjust(hspace=0.3)
+        plt.draw()
+        plt.pause(0.001)
+        return np.array(self.fig.canvas.renderer.buffer_rgba())
+
 
     def close(self):
-        pass
+        if self.fig:
+            plt.close()
+            self.fig = None
+            self.axes = None
+
     def seed(self, seed=None):
-        pass
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
 
     def get_state_summary(self):
         # gather states from producer, inventory and consumer
         states = {}
-        states["consumer_queue"] = self.consumer_model.consumer_queue
+        states["consumer"] = self._consumer_model.get_state()
+        states["producer"] = self._producer_model.get_state()
+        states["inventory"] = self._inventory.get_state()
+        states["act"] = self.act
+        return states
+
+    def accumulate_state(self, state):
+        self.acc_list.append(state)
+        self.state_history["num_products"] = [x["inventory"]["num_products"] for x in self.acc_list]
+        self.state_history["num_orders"] = [x["consumer"]["num_orders"] for x in self.acc_list]
+        self.state_history["num_new_orders"] = [x["consumer"]["num_new_orders"] for x in self.acc_list]
+        self.state_history["num_new_production"] = [x["act"] for x in self.acc_list]
+        self.state_history["num_ready"] = [x["producer"]["num_ready"] for x in self.acc_list]
+        self.state_history["num_production"] = [x["producer"]["num_production"] for x in self.acc_list]
+
+
 
 
 class Metric():

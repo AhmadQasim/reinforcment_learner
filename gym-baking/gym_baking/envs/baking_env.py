@@ -49,6 +49,8 @@ class BakingEnv(gym.Env):
         self.demand_threshold = 50
         self.inventory_threshold = 50
 
+        self.episode_max_steps = 200
+
         self.action_space = spaces.Discrete(2)
         self.observation_space = np.zeros((2,))
         self.seed()
@@ -83,7 +85,8 @@ class BakingEnv(gym.Env):
         self.timestamp += 1
 
         done = inventory >= self.inventory_threshold or demand > self.demand_threshold
-        
+        if self.timestamp>self.episode_max_steps:
+            done = True
         # reward function
         if not done:
             if prev_demand>0:
@@ -121,14 +124,17 @@ class BakingEnv(gym.Env):
         self.axes[0].clear()
         self.axes[1].clear()
 
-        self.axes[0].plot([x[0] for x in self.obs], color='green', label='demand')[0]
-        self.axes[0].plot([x[1] for x in self.obs], color='red', label='inventory')[0]
-        self.axes[0].legend()
+        self.axes[0].plot([x[0] for x in self.obs], color='magenta', label='num_products')[0]
+        self.axes[0].plot([x[1] for x in self.obs], color='green', label='num_orders')[0]
+        self.axes[0].legend(loc='upper right')
+        self.axes[0].set_title('current states')
 
-        self.axes[1].plot([x[0] for x in self.acts], color='green', label='do not bake')
-        self.axes[1].plot([x[1] for x in self.acts], color='red', label='bake')
-        self.axes[1].legend()
+        self.axes[1].set_title('step actions')
 
+        self.axes[1].plot([x[0] for x in self.acts], color='magenta', label='baking')
+        self.axes[1].plot([x[1] for x in self.acts], color='green', label='ordering')
+        self.axes[1].legend(loc='upper right')
+        plt.subplots_adjust(hspace=0.3)
         plt.draw()
         plt.pause(0.001)
 
