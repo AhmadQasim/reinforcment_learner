@@ -6,3 +6,4 @@
 *.pkl
 *.idea
 results/*
+.vscode/*
