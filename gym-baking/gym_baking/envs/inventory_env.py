@@ -131,7 +131,6 @@ class ConsumerModel():
     def __init__(self):
         self.order_queue = []
         self._consumer_queue = []
-        # self._product_list = product_list
 
     def reset(self):
         self.order_queue = []
