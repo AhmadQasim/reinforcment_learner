@@ -83,8 +83,6 @@ class ProducerModel():
         state["num_ready"] = len(self.ready_queue)
         return state
 
-<<<<<<< HEAD
-=======
     def is_busy(self):
         return len(self._production_queue)>0
 
@@ -96,14 +94,12 @@ class ProducerModel():
         self.ready_queue = []
         return products
 
->>>>>>> remove comments
     def is_all_ready(self):
         return all([x.is_done for x in self._production_queue])
-<<<<<<< HEAD
+
 
     # def start_producing(self, product_type, num_product):
-=======
->>>>>>> clean code
+
 
     def start_producing(self, products):
         """
