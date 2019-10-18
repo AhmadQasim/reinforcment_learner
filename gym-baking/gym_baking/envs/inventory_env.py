@@ -45,6 +45,7 @@ class Inventory():
     def reset(self):
         self._products = []
     def get_state(self):
+        # state is products queue
         state = {}
         state["num_products"] = len(self._products)
         return state
@@ -71,13 +72,15 @@ class ProducerModel():
         self._production_queue = []
 
         # product is ready
-        self.ready_queue = []
+        # self.ready_queue = []
+        try to remove ready queue
 
     def reset(self):
         self._production_queue = []
         self.ready_queue = []
 
     def get_state(self):
+        # state = production queue
         state = {}
         state["num_production"] = len(self._production_queue)
         state["num_ready"] = len(self.ready_queue)
@@ -86,30 +89,20 @@ class ProducerModel():
     def is_busy(self):
         return len(self._production_queue)>0
 
-    def production_queue(self):
-        return self._production_queue()
-
     def ready_products(self):
         products = self.ready_queue.copy()
         self.ready_queue = []
         return products
 
     def is_all_ready(self):
-        return all([x.is_done for x in self._production_queue])
+        return all([x.is_done() for x in self._production_queue])
 
 
-    # def start_producing(self, product_type, num_product):
-
-
-    def start_producing(self, products):
-        """
-        products: num_products
-        """
-
+    def start_producing(self, product_type, num_product):
         if self.is_busy():
             return False
 
-        for i in range(products):
+        for i in range(num_product):
             self._production_queue.append(ProductItem('type', 5, 100))
         
         return True
@@ -134,6 +127,7 @@ class ConsumerModel():
         self._num_new_order = np.random.randint(0,2)
 
     def get_state(self):
+        # state = self.order_queue
         state = {}
         state["num_orders"] = len(self.order_queue)
         state["num_new_orders"] = self._num_new_order
@@ -168,6 +162,14 @@ class ConsumerModel():
         num_samples = np.random.random_integers(0, len(nonexisting))
         sample_indices = np.random.choice(len(nonexisting), num_samples, replace=True)
         return self._product_list[sample_indices]
+
+
+    def serve_orders(self, inventory_products):
+        self.make_orders(inventory_products)
+
+        """
+        split orders and available, remove queue
+        """
 
     def add_random_orders(self, inventory_products):
         n = self.sample_demo()
@@ -233,6 +235,8 @@ class InventoryTrackingEnv(gym.Env):
         self.state_history={}
         self.acc_list = list()
         self.act = 0
+        self.take = 0
+        self.add = 0
         return self.get_state_summary()
 
     def step(self, action):
@@ -241,12 +245,15 @@ class InventoryTrackingEnv(gym.Env):
  
         self.timestamp += 1
         items = self._producer_model.ready_products()
+        self.add = len(items)
         self._inventory.add(items)
         items = self._inventory.products()
         items, orders = self._consumer_model.add_random_orders(items)
+        self.take = items
+        self.add -= self.take
         self._inventory.take(items)
  
-        self._producer_model.start_producing(action)
+        self._producer_model.start_producing('type', action)
         self._producer_model.step()
         self._consumer_model.step()
         self._inventory.step()
@@ -265,12 +272,11 @@ class InventoryTrackingEnv(gym.Env):
         screen_height = 400
 
         if self.fig is None or self.axes is None:
-            self.fig, self.axes = plt.subplots(3,1)
+            self.fig, self.axes = plt.subplots(4,1)
             plt.ion()
 
-        self.axes[0].clear()
-        self.axes[1].clear()
-        self.axes[2].clear()
+        for axis in self.axes:
+            axis.clear()
 
         self.axes[0].plot(self.state_history["num_products"], label="inventory_products")
         self.axes[0].plot(self.state_history["num_orders"], label="customer_orders")
@@ -286,6 +292,11 @@ class InventoryTrackingEnv(gym.Env):
         self.axes[2].plot(self.state_history["num_ready"], label="done baking")
         self.axes[2].legend(loc="upper right")
         self.axes[2].set_title("producer model")
+
+        self.axes[3].plot(self.state_history["num_new_done_orders"], label="done ordering")
+        self.axes[3].plot(self.state_history["num_new_add_products"], label="inv diff")
+        self.axes[3].legend(loc="upper right")
+        self.axes[3].set_title("consumer model")
 
         plt.subplots_adjust(hspace=0.3)
         plt.draw()
@@ -305,6 +316,8 @@ class InventoryTrackingEnv(gym.Env):
         states["producer"] = self._producer_model.get_state()
         states["inventory"] = self._inventory.get_state()
         states["act"] = self.act
+        states["take"] = self.take
+        states["add_and_take"] = self.add
         return states
 
     def accumulate_state(self, state):
@@ -315,6 +328,8 @@ class InventoryTrackingEnv(gym.Env):
         self.state_history["num_new_production"] = [x["act"] for x in self.acc_list]
         self.state_history["num_ready"] = [x["producer"]["num_ready"] for x in self.acc_list]
         self.state_history["num_production"] = [x["producer"]["num_production"] for x in self.acc_list]
+        self.state_history["num_new_done_orders"] = [x["take"] for x in self.acc_list]
+        self.state_history["num_new_add_products"] = [x["add_and_take"] for x in self.acc_list]
 
 
 
