@@ -42,10 +42,11 @@ Initialize a ProducerModel from config
 
 - config: products list with prodution time and expire time for each individual product type
 
-### Attributes
-- production_queue: a list of ProductItem list([ProductItem[type,age]])
-
 ### Methods
+
+**production_queue() -> ProductionQueue**
+
+- production_queue: a list of ProductItem list([ProductItem[type,age]])
 
 **start_producing(product_type, num_product) -> boolean**
 
