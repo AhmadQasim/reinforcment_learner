@@ -55,6 +55,10 @@ Initialize a ProducerModel from config
 - producer_state : dict
     - "production_queue" : list([ProductItem[type,age]])
 
+**get_ready_products() -> ready_products**
+
+return ready queue (when products are ready: ready queue; not ready: empty list)
+
 **start_producing(product_type, num_product) -> boolean**
 
 Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of product items into production queue.
@@ -66,8 +70,6 @@ Start producing. If the producer is currently not available, i.e. production_que
 **step() -> ReadyQueue**
 
 1. aging of product items in the production queue
-
-2. return ready queue (when products are ready: ready queue; not ready: empty list)
 
 **reset() -> ProductionQueue**
 
