@@ -9,6 +9,12 @@ Framework for training and testing reinforcement learning agents.
 InventoryManagerEnv contains a producer model, a consumer model and the inventory.
 
 
+# Reward
+- minimze waiting time
+- maximize freshnes
+- minimize waste
+
+
 ## ProductItem
 **ProductItem(item_type, production_time, expire_time)**
 
