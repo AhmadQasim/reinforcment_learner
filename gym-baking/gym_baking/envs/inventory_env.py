@@ -73,18 +73,18 @@ class ProducerModel():
 
         # product is ready
         # self.ready_queue = []
-        try to remove ready queue
+        # try to remove ready queue
 
     def reset(self):
         self._production_queue = []
-        self.ready_queue = []
 
     def get_state(self):
         # state = production queue
         state = {}
-        state["num_production"] = len(self._production_queue)
-        state["num_ready"] = len(self.ready_queue)
-        return state
+        # state["num_production"] = len(self._production_queue)
+        # state["num_ready"] = len(self.ready_queue)
+        # return state
+        return self._production_queue
 
     def is_busy(self):
         return len(self._production_queue)>0
@@ -113,9 +113,12 @@ class ProducerModel():
             item.step()
 
         if self.is_all_ready(): # check status
-            self.ready_queue, self._production_queue = self._production_queue, [] # clear if ready
+            ready_products = self._production_queue.copy()
+            self._production_queue = []
+            return ready_products
 
-        
+        return []
+
 class ConsumerModel():
     def __init__(self):
         self.order_queue = []
@@ -132,10 +135,6 @@ class ConsumerModel():
         state["num_orders"] = len(self.order_queue)
         state["num_new_orders"] = self._num_new_order
         return state
-
-    def sample_demo(self):
-        self._num_new_order = np.random.randint(0,3)
-        return self._num_new_order
 
     def consumer_queue(self):
         return self._consumer_queue()
@@ -164,15 +163,16 @@ class ConsumerModel():
         return self._product_list[sample_indices]
 
 
-    def serve_orders(self, inventory_products):
-        self.make_orders(inventory_products)
+    def make_orders(self, inventory_products):
+        self._num_new_order = np.random.randint(0,3)
+        return self._num_new_order
 
+    def _serve_orders(self, inventory_products):
         """
         split orders and available, remove queue
         """
+        n = self.make_orders(inventory_products)
 
-    def add_random_orders(self, inventory_products):
-        n = self.sample_demo()
         for i in range(n):
             self.order_queue.append(Order('type'))
 
@@ -232,38 +232,48 @@ class InventoryTrackingEnv(gym.Env):
         self._consumer_model.reset()
         self._inventory.reset()
 
+        self.state = {
+            "producer": self._producer_model.get_state(),
+            "consumer": self._consumer_model.get_state(),
+            "inventory": self._inventory.get_state(),
+            "num_ready": 0,
+            "act": 0,
+            "take": 0,
+            "add_and_take":0,
+        }
+
         self.state_history={}
         self.acc_list = list()
-        self.act = 0
-        self.take = 0
-        self.add = 0
-        return self.get_state_summary()
+
+        return self.state
 
     def step(self, action):
         assert self.action_space.contains(action)
         self.act = action
  
         self.timestamp += 1
-        items = self._producer_model.ready_products()
-        self.add = len(items)
-        self._inventory.add(items)
-        items = self._inventory.products()
-        items, orders = self._consumer_model.add_random_orders(items)
-        self.take = items
-        self.add -= self.take
-        self._inventory.take(items)
- 
-        self._producer_model.start_producing('type', action)
-        self._producer_model.step()
+
+        ready_products = self._producer_model.step()
+        self._inventory.add(ready_products)
+        curr_products = self._inventory.products()
+        consum_products, pending_orders = self._consumer_model._serve_orders(curr_products)
+        self._inventory.take(consum_products)
+        self._producer_model.start_producing('type',action)
         self._consumer_model.step()
         self._inventory.step()
- 
-        states = self.get_state_summary()
-        self.accumulate_state(states)
+
+        self.state["num_ready"] = len(ready_products)
+        self.state["take"] = consum_products
+        self.state["add_and_take"] = len(ready_products)-consum_products
+        self.state["consumer"] = self._consumer_model.get_state()
+        self.state["producer"] = self._producer_model.get_state()
+        self.state["inventory"] = self._inventory.get_state()
+
+        self.accumulate_state(self.state)
  
         done = self.timestamp>100
  
-        return states, 0, done, {}
+        return self.state, 0, done, {}
 
     def render(self, mode='human', close=False):
         if not self.state_history:
@@ -309,25 +319,14 @@ class InventoryTrackingEnv(gym.Env):
             self.fig = None
             self.axes = None
 
-    def get_state_summary(self):
-        # gather states from producer, inventory and consumer
-        states = {}
-        states["consumer"] = self._consumer_model.get_state()
-        states["producer"] = self._producer_model.get_state()
-        states["inventory"] = self._inventory.get_state()
-        states["act"] = self.act
-        states["take"] = self.take
-        states["add_and_take"] = self.add
-        return states
-
     def accumulate_state(self, state):
-        self.acc_list.append(state)
+        self.acc_list.append(self.state.copy())
         self.state_history["num_products"] = [x["inventory"]["num_products"] for x in self.acc_list]
         self.state_history["num_orders"] = [x["consumer"]["num_orders"] for x in self.acc_list]
         self.state_history["num_new_orders"] = [x["consumer"]["num_new_orders"] for x in self.acc_list]
         self.state_history["num_new_production"] = [x["act"] for x in self.acc_list]
-        self.state_history["num_ready"] = [x["producer"]["num_ready"] for x in self.acc_list]
-        self.state_history["num_production"] = [x["producer"]["num_production"] for x in self.acc_list]
+        self.state_history["num_ready"] = [x["num_ready"] for x in self.acc_list]
+        self.state_history["num_production"] = [len(x["producer"]) for x in self.acc_list]
         self.state_history["num_new_done_orders"] = [x["take"] for x in self.acc_list]
         self.state_history["num_new_add_products"] = [x["add_and_take"] for x in self.acc_list]
 
