@@ -18,7 +18,7 @@ return an instance of product item
 - age: age of the product item
 
 ### Methods
-- is_done() -> boolean : return status of whether the product item is ready or not
+- is_done() -> boolean: return status of whether the product item is ready or not
 - is_fresh() -> boolean: return status of freshment
 
 
@@ -46,7 +46,11 @@ Initialize a ProducerModel from config
 
 **production_queue() -> ProductionQueue**
 
-- production_queue: a list of ProductItem list([ProductItem[type,age]])
+- production_queue: a list of ProductItem: list([ProductItem[type,age]])
+
+**get_state() -> ProducerState**
+
+return production queue
 
 **start_producing(product_type, num_product) -> boolean**
 
@@ -65,10 +69,6 @@ Start producing. If the producer is currently not available, i.e. production_que
 **reset() -> ProductionQueue**
 
 clear production queue and return production queue
-
-**get_state() -> ProducerState**
-
-return production queue
 
 **_is_busy()**
 
