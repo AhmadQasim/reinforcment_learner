@@ -163,12 +163,12 @@ self._inventory = Inventory()
 
 Run one timestep of the environment
 
-### step workflow
+### example step workflow
 ```
 def step(self,action):
     ready_products = self._producer_model.get_ready_products()
     self._inventory.add(ready_products)
-    curr_products = self._inventory.products()
+    curr_products = self._inventory.get_state()["products"]
     consumption_products, orderqueue = self._consumer_model._serve_orders(curr_products)
     self._inventory.take(consumption_products)
     self._producer_model.start_producing(action)
