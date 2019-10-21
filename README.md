@@ -77,20 +77,60 @@ return status of whether the producer model is producing or not
 **_is_all_ready()**
 
 ## Consumer Model
-Init(config[productlist, production_time, expire_time])
 
-* get_order_queue() -> ConsumerState ([order_queue[Order[type, waiting_time]]])
-* make_orders(inventory_products) -> list[Order]
-* _serve_orders(inventory_products, make_orders) -> ConsumerState(OrderQueue), list[DoneOrder]
-* step() -> ConsumerState "update orders"
-* reset() -> ConsumerState
-* get_state() -> ConsumerState
+**ConsumerModel(config)**
+
+### Methods
+
+**order_queue() -> OrderQueue**
+
+- consumer state: a list of order instances
+
+**get_state() -> OrderQueue**
+
+return state of consumer model. i.e. OrderQueue
+
+**make_orders( inventory_products ) -> new_orders**
+
+return new orders
+
+**step() -> None**
+
+add waiting time of orders
+
+**reset() -> OrderQueue**
+
+clear order queue and return order queue
+
+**_server_orders( inventory_products ) -> ConsumerQueue, OrderQueue**
+
+- consumerQueue: products that are ready to take
+- orderQueue: pending orders
 
 
 ## Inventory
-Init(config)
 
-* reset()
-* seed()
-* step()
-* render()
+Inventory to keep track of products
+
+### Methods
+
+**reset() -> InventoryState**
+
+- InventoryState: list of products
+
+**step() -> None**
+
+- aging of products in the inventory
+
+**take(products) -> None**
+
+- take products from the inventory
+
+**add(products) -> None**
+
+- add products into the inventory
+
+## InventoryManagerEnv
+
+gym environments for inventory managing
+
