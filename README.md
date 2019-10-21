@@ -58,7 +58,7 @@ Start producing. If the producer is currently not available, i.e. production_que
 
 - product_type: type of product to produce
 - num_product: number of product to produce
-- return: if request is accepted
+- return: whether request is accepted or not
 
 **step() -> ReadyQueue**
 
@@ -70,15 +70,20 @@ Start producing. If the producer is currently not available, i.e. production_que
 
 clear production queue and return production queue
 
-**_is_busy()**
+**_is_busy() -> boolean**
 
 return status of whether the producer model is producing or not
 
-**_is_all_ready()**
+**_is_all_ready() -> boolean**
+
+return status of whether all the products in the production queue are ready or not
 
 ## Consumer Model
 
 **ConsumerModel(config)**
+
+Initialize a ProducerModel from config
+- config: products list with prodution time and expire time for each individual product type
 
 ### Methods
 
@@ -134,3 +139,19 @@ Inventory to keep track of products
 
 gym environments for inventory managing
 
+
+## Example Inventory Manager Environment
+```
+env = gym.make('gym_baking:Inventory-v0') # load environment
+
+for episode in num_episodes:
+    observation = env.reset() # reset environment
+    reward = 0
+    done = False
+    for step in num_timesteps:
+        env.render() # visualization
+        action = agent.act(observation, reward, done) # agent makes desicion
+        observation, reward, done, info = env.step(action) # environment transformation
+        if done:
+            break
+```
