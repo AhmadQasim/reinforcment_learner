@@ -43,7 +43,7 @@ Initialize a ProducerModel from config
 - config: products list with prodution time and expire time for each individual product type
 
 ### Attributes
-- production_queue: a list of ProductItem
+- production_queue: a list of ProductItem list([ProductItem[type,age]])
 
 ### Methods
 
@@ -51,24 +51,31 @@ Initialize a ProducerModel from config
 
 return status of whether the producer model is producing or not
 
-**start_producing(product_type, num_product) -> None**
+**start_producing(product_type, num_product) -> boolean**
 
-Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of products into production queue.
+Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of product items into production queue.
 
 - product_type: type of product to produce
 - num_product: number of product to produce
+- return: if request is accepted
 
-**step() -> ProducerState (production_queue[ProductItem[type, age]])**
+**step() -> ReadyQueue**
 
-**reset() -> ProducerState  "reset producer state"**
+1. aging of product items in the production queue
+
+2. return ready queue (when products are ready: ready queue; not ready: empty list)
+
+**reset() -> ProductionQueue**
+
+clear production queue and return production queue
 
 **get_state() -> ProducerState**
 
-**get_ready_product() -> ReadyQueue (will be deprecated)**
+return production queue
 
-**is_busy()**
+**_is_busy()**
 
-**is_all_ready()**
+**_is_all_ready()**
 
 ## Consumer Model
 Init(config[productlist, production_time, expire_time])
