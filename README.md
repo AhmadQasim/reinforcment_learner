@@ -19,6 +19,7 @@ return an instance of product item
 
 ### Methods
 - is_done() -> boolean : return status of whether the product item is ready or not
+- is_fresh() -> boolean: return status of freshment
 
 
 ## Order
@@ -33,7 +34,7 @@ return an instance of order
 
 
 ## Producer Model
-ProducerModel receives action from agent and schedule the production. It returns products when the production is ready. The state space of ProducerModel is a production queue of ProductItem.
+ProducerModel receives action from agent and schedules the production. It returns products when the production is ready. The state space of ProducerModel is a production queue of ProductItem.
 
 **ProducerModel(config)**
 
@@ -45,6 +46,10 @@ Initialize a ProducerModel from config
 - production_queue: a list of ProductItem
 
 ### Methods
+
+**is_busy() -> boolean**
+
+return status of whether the producer model is producing or not
 
 **start_producing(product_type, num_product) -> None**
 

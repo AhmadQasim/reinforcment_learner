@@ -67,6 +67,12 @@ class ProducerModel():
         # baking in the oven
         self._production_queue = []
 
+    def _is_busy(self):
+        return len(self._production_queue)>0
+
+    def _is_all_ready(self):
+        return all([x.is_done() for x in self._production_queue])
+
     def reset(self):
         self._production_queue = []
         return self._production_queue
@@ -74,14 +80,8 @@ class ProducerModel():
     def production_queue(self):
         return self._production_queue
 
-    def is_busy(self):
-        return len(self._production_queue)>0
-
-    def is_all_ready(self):
-        return all([x.is_done() for x in self._production_queue])
-
     def start_producing(self, product_type, num_product):
-        if self.is_busy():
+        if self._is_busy():
             return False
 
         for i in range(num_product):
@@ -94,7 +94,7 @@ class ProducerModel():
         for item in self._production_queue:
             item.step()
 
-        if self.is_all_ready(): # check status
+        if self._is_all_ready(): # check status
             ready_products = self._production_queue.copy()
             self._production_queue = []
             return ready_products
@@ -116,6 +116,10 @@ class ConsumerModel():
         self._num_new_order = np.random.randint(0,3)
         print(self._num_new_order)
         return self._num_new_order
+
+    def step(self):
+        for order in self._order_queue:
+            order.step()
 
     def _serve_orders(self, inventory_products):
         """
@@ -139,9 +143,6 @@ class ConsumerModel():
         assert remain == len(self._order_queue)
         return take, remain
 
-    def step(self):
-        for order in self._order_queue:
-            order.step()
 
 
 class InventoryTrackingEnv(gym.Env):
