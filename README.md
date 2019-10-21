@@ -47,10 +47,6 @@ Initialize a ProducerModel from config
 
 ### Methods
 
-**is_busy() -> boolean**
-
-return status of whether the producer model is producing or not
-
 **start_producing(product_type, num_product) -> boolean**
 
 Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of product items into production queue.
@@ -74,6 +70,8 @@ clear production queue and return production queue
 return production queue
 
 **_is_busy()**
+
+return status of whether the producer model is producing or not
 
 **_is_all_ready()**
 
