@@ -50,13 +50,10 @@ Initialize a ProducerModel from config
 
 ### Methods
 
-**production_queue() -> ProductionQueue**
+**get_state() -> producer_state**
 
-- production_queue: a list of ProductItem: list([ProductItem[type,age]])
-
-**get_state() -> ProducerState**
-
-return production queue
+- producer_state : dict
+    - "production_queue" : list([ProductItem[type,age]])
 
 **start_producing(product_type, num_product) -> boolean**
 
@@ -93,13 +90,10 @@ Initialize a ProducerModel from config
 
 ### Methods
 
-**order_queue() -> OrderQueue**
+**get_state() -> consumer_state**
 
-- consumer state: a list of order instances
-
-**get_state() -> OrderQueue**
-
-return state of consumer model. i.e. OrderQueue
+- consumer_state: dict
+    - "order_queue" : list([Order[item_type]])
 
 **make_orders( inventory_products ) -> new_orders**
 
@@ -125,6 +119,11 @@ Inventory to keep track of products
 
 ### Methods
 
+**get_state() -> inventory_state**
+
+- inventory_state : dict
+    - "products" : list(ProductItem) # products in the inventory
+
 **reset() -> InventoryState**
 
 - InventoryState: list of products
@@ -144,6 +143,45 @@ Inventory to keep track of products
 ## InventoryManagerEnv
 
 gym environments for inventory managing
+
+**InventoryManagerEnv()**
+
+Initialize a Inventory Manager Environment. Producer model, consumer model and inventory are defined here
+```
+self._producer_model = ProducerModel()
+self._consumer_model = ConsumerModel()
+self._inventory = Inventory()
+```
+
+**reset()**
+
+**seed()**
+
+**render()**
+
+**step(action) -> observation, reward, done, info**
+
+Run one timestep of the environment
+
+### step workflow
+```
+def step(self,action):
+    ready_products = self._producer_model.get_ready_products()
+    self._inventory.add(ready_products)
+    curr_products = self._inventory.products()
+    consumption_products, orderqueue = self._consumer_model._serve_orders(curr_products)
+    self._inventory.take(consumption_products)
+    self._producer_model.start_producing(action)
+    self._producer_model.step()
+    self._consumer_model.step()
+    self._inventory.step()
+
+    states = get_states()
+    reward = reward_function()
+    done = episode_is_done()
+    
+    return states, reward, done, {}
+```
 
 
 ## Example Inventory Manager Environment
