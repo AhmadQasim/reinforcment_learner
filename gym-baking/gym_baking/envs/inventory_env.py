@@ -1,3 +1,4 @@
+import copy
 import uuid
 import numpy as np
 import gym
@@ -44,11 +45,6 @@ class Inventory():
 
     def reset(self):
         self._products = []
-    def get_state(self):
-        # state is products queue
-        state = {}
-        state["num_products"] = len(self._products)
-        return state
 
     def add(self, product):
         for item in product:
@@ -71,32 +67,18 @@ class ProducerModel():
         # baking in the oven
         self._production_queue = []
 
-        # product is ready
-        # self.ready_queue = []
-        # try to remove ready queue
-
     def reset(self):
         self._production_queue = []
+        return self._production_queue
 
-    def get_state(self):
-        # state = production queue
-        state = {}
-        # state["num_production"] = len(self._production_queue)
-        # state["num_ready"] = len(self.ready_queue)
-        # return state
+    def production_queue(self):
         return self._production_queue
 
     def is_busy(self):
         return len(self._production_queue)>0
 
-    def ready_products(self):
-        products = self.ready_queue.copy()
-        self.ready_queue = []
-        return products
-
     def is_all_ready(self):
         return all([x.is_done() for x in self._production_queue])
-
 
     def start_producing(self, product_type, num_product):
         if self.is_busy():
@@ -121,84 +103,45 @@ class ProducerModel():
 
 class ConsumerModel():
     def __init__(self):
-        self.order_queue = []
-        self._consumer_queue = []
+        self._order_queue = []
 
     def reset(self):
-        self.order_queue = []
-        self._consumer_queue = []
+        self._order_queue = []
         self._num_new_order = np.random.randint(0,2)
 
-    def get_state(self):
-        # state = self.order_queue
-        state = {}
-        state["num_orders"] = len(self.order_queue)
-        state["num_new_orders"] = self._num_new_order
-        return state
-
-    def consumer_queue(self):
-        return self._consumer_queue()
-
-    def sample_from_product_list(self):
-        # random samples from all products(currently available and not available)
-        num_samples = np.random.random_integers(0, len(self._product_list))
-        sample_indices = np.random.choice(len(self._product_list), num_samples, replace=True)
-        return self._product_list[sample_indices]
-
-    def sample_from_existing(self, inventory_products):
-        # random samples from products that are currently available
-        num_samples = np.random.random_integers(0, len(inventory_products))
-        sample_indices = np.random.choice(len(inventory_products), num_samples, replace=False)
-        return inventory_products[sample_indices]
-
-    def sample_from_nonexisting(self, inventory_products):
-        # random samples from products that are currently not available
-        nonexisting = []
-        for item in self._product_list:
-            if not item in inventory_products:
-                nonexisting.append(item)
-        
-        num_samples = np.random.random_integers(0, len(nonexisting))
-        sample_indices = np.random.choice(len(nonexisting), num_samples, replace=True)
-        return self._product_list[sample_indices]
-
+    def order_queue(self):
+        return self._order_queue
 
     def make_orders(self, inventory_products):
         self._num_new_order = np.random.randint(0,3)
+        print(self._num_new_order)
         return self._num_new_order
 
     def _serve_orders(self, inventory_products):
         """
-        split orders and available, remove queue
+        split orders and available, remove items from the queue
         """
         n = self.make_orders(inventory_products)
 
         for i in range(n):
-            self.order_queue.append(Order('type'))
+            self._order_queue.append(Order('type'))
 
-        total_order = len(self.order_queue)
+        total_order = len(self._order_queue)
         available = len(inventory_products)
 
         take = available if available<=total_order else total_order
 
         remain = total_order - take
-        print(take, remain)
 
         for i in range(take):
-            self.order_queue.pop()
+            self._order_queue.pop()
 
+        assert remain == len(self._order_queue)
         return take, remain
 
-    def get_state(self):
-        state = {}
-        state["num_new_orders"] = self._num_new_order
-        state["num_orders"] = len(self.order_queue)
-        return state
-
     def step(self):
-        for order in self.order_queue:
+        for order in self._order_queue:
             order.step()
-
 
 
 class InventoryTrackingEnv(gym.Env):
@@ -233,13 +176,14 @@ class InventoryTrackingEnv(gym.Env):
         self._inventory.reset()
 
         self.state = {
-            "producer": self._producer_model.get_state(),
-            "consumer": self._consumer_model.get_state(),
-            "inventory": self._inventory.get_state(),
+            "producer": self._producer_model.production_queue(),
+            "consumer": copy.deepcopy(self._consumer_model.order_queue()),
+            "inventory": self._inventory.products(),
             "num_ready": 0,
             "act": 0,
             "take": 0,
             "add_and_take":0,
+            "num_new_orders":0,
         }
 
         self.state_history={}
@@ -256,7 +200,7 @@ class InventoryTrackingEnv(gym.Env):
         ready_products = self._producer_model.step()
         self._inventory.add(ready_products)
         curr_products = self._inventory.products()
-        consum_products, pending_orders = self._consumer_model._serve_orders(curr_products)
+        consum_products, orderqueue = self._consumer_model._serve_orders(curr_products)
         self._inventory.take(consum_products)
         self._producer_model.start_producing('type',action)
         self._consumer_model.step()
@@ -264,10 +208,12 @@ class InventoryTrackingEnv(gym.Env):
 
         self.state["num_ready"] = len(ready_products)
         self.state["take"] = consum_products
+        self.state["act"] = action
         self.state["add_and_take"] = len(ready_products)-consum_products
-        self.state["consumer"] = self._consumer_model.get_state()
-        self.state["producer"] = self._producer_model.get_state()
-        self.state["inventory"] = self._inventory.get_state()
+        self.state["num_new_orders"] = len(self._consumer_model.order_queue()) - len(self.state["consumer"]) + consum_products
+        self.state["consumer"] = copy.deepcopy(self._consumer_model.order_queue())
+        self.state["producer"] = self._producer_model.production_queue()
+        self.state["inventory"] = self._inventory.products()
 
         self.accumulate_state(self.state)
  
@@ -320,10 +266,10 @@ class InventoryTrackingEnv(gym.Env):
             self.axes = None
 
     def accumulate_state(self, state):
-        self.acc_list.append(self.state.copy())
-        self.state_history["num_products"] = [x["inventory"]["num_products"] for x in self.acc_list]
-        self.state_history["num_orders"] = [x["consumer"]["num_orders"] for x in self.acc_list]
-        self.state_history["num_new_orders"] = [x["consumer"]["num_new_orders"] for x in self.acc_list]
+        self.acc_list.append(copy.deepcopy(self.state))
+        self.state_history["num_products"] = [len(x["inventory"]) for x in self.acc_list]
+        self.state_history["num_orders"] = [len(x["consumer"]) for x in self.acc_list]
+        self.state_history["num_new_orders"] = [x["num_new_orders"] for x in self.acc_list]
         self.state_history["num_new_production"] = [x["act"] for x in self.acc_list]
         self.state_history["num_ready"] = [x["num_ready"] for x in self.acc_list]
         self.state_history["num_production"] = [len(x["producer"]) for x in self.acc_list]
