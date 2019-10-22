@@ -134,7 +134,6 @@ class ConsumerModel():
 
     def make_orders(self, inventory_products, order_queue, timestep):
         num_new_order = np.random.randint(0,3)
-        print(num_new_order)
         type_ids = np.random.choice(len(self.config), num_new_order, replace=True)
 
         self._debug_new_order_queue = []
@@ -199,7 +198,6 @@ class InventoryTrackingEnv(gym.Env):
 
         num_types = len(self.config)
         self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,15]), dtype=np.int64)
-        self.states_space = np.zeros((2,))
 
         self._producer_model = ProducerModel(self.config)
         self._inventory = Inventory()
@@ -211,6 +209,7 @@ class InventoryTrackingEnv(gym.Env):
         self.axes = None
 
         self.state_history = {}
+        self._metric = Metric(self.config)
     
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -260,16 +259,17 @@ class InventoryTrackingEnv(gym.Env):
         self.state["consumer_state"] = self._consumer_model.get_state()
         self.state["producer_state"] = self._producer_model.get_state()
         self.state["inventory_state"] = self._inventory.get_state()
-
         self.get_state_history(self.state)
 
         self.timestep += 1
-
+        
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
-
+        
         done = self.timestep>100
 
-        return observation, 0, done, {}
+        reward = self._metric.get_metric(self.state_history, done)
+
+        return observation, reward, done, {}
 
     def render(self, mode='human', close=False):
         if not self.state_history:
@@ -312,7 +312,6 @@ class InventoryTrackingEnv(gym.Env):
         plt.pause(0.001)
         return np.array(self.fig.canvas.renderer.buffer_rgba())
 
-
     def get_state_history(self, state):
         in_production = len(state["producer_state"]["production_queue"])
         ready_count = Counter([x._item_type for x in state["ready_queue"]])
@@ -335,75 +334,31 @@ class InventoryTrackingEnv(gym.Env):
             self.state_history.setdefault('taken_queue_'+key, []).append(taken_count[key])
             self.state_history.setdefault('debug_new_order_'+key, []).append(new_order[key])
 
+    def _validate_config(self, config):
+        product_list = [x['type'] for x in config.values()]
+        assert len(set(product_list)) == len(config)
+
     def close(self):
         if self.fig:
             plt.close()
             self.fig = None
             self.axes = None
 
-    def _validate_config(self, config):
-        product_list = [x['type'] for x in config.values()]
-        assert len(set(product_list)) == len(config)
-
 class Metric():
-    def __init__(self, env):
-        self._env = env
+    def __init__(self, config):
+        self.config = config
+        self.product_list = [x["type"] for x in self.config.values()]
+
+    def get_metric(self, state_history, done):
+        if not done:
+            return 0
+        sales = 0
+        wastes = 0
+        for key in self.product_list:
+            sales += sum(state_history['taken_queue_'+key])
+            wastes += sum(state_history['inventory_'+key])
         
-        self._previous_state = {}
-        self._current_state = {}
-
-        self.state_descriptor={}
-        self.metric = {}
-
-    def reset(self):
-        return self.metric
-
-    def get_state_descriptor(self, previous_state, current_state):
-        # state_metric
-        self.state_descriptor["num_of_orders"] = len(current_state["order_queue"])
-        self.state_descriptor["num_consumptions"] = len(current_state["consumer_queue"])
-        self.state_descriptor["num_of_remaining_products"] = len(current_state["products"])
-
-        fresh_states = 0
-        for item in current_state["products"]:
-            fresh_states += item.age
-        self.state_descriptor["fresh_states_of_remaining"] = fresh_states
-
-        waiting_time = 0
-        for order in current_state["order_queue"]:
-            waiting_time += order.waiting
-        self.state_descriptor["sum_of_waiting_time"] = waiting_time
-
-        # step_metric
-        self.state_descriptor["num_new_orders"] = len(current_state["order_queue"]) - len(previous_state["order_queue"])
-        self.state_descriptor["num_new_products"] = len(current_state["products"]) - len(previous_state["products"])
-
-        return self.state_descriptor
-
-    def calculate_metric_function(self, previous_state, current_state):
-        self.get_state_descriptor(preivous_state, current_state)
-
-        self.metric["remaining_products"] = - self.state_descriptor["num_of_remaining_products"]
-
-        # weighted sum from all metrics
-        self.metric["episode_metric"] = f1(self.state_descriptor)
-        """
-        f1 : -num_remaining_products + fresh_states_of_remaining + num_total_cosumption - num_remaining_orders + num_total_production
-        """
-
-    def step(self):
-        self._current_state = self._env.get_state_summary()
-
-        if self._previous_state:
-            self.calculate_metric_function(self._previous_state, self._current_state)
-        
-        self._previous_state.update(self._current_state)
-    
-        if is_done:
-            self.get_final_metric()
-
-        return self.metric
-
+        return sales - wastes
 
 class Agent(object):
     def __init__(self, action_space):
