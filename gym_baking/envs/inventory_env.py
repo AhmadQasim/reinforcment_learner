@@ -212,11 +212,11 @@ class InventoryManagerEnv(gym.Env):
         return [seed]
 
     def reset(self):
-        if plt.get_fignums():
-            plt.ioff()
-            plt.show()
-            self.fig = None
-            self.axes = None
+        # if plt.get_fignums():
+        #     plt.ioff()
+        #     plt.show()
+        #     self.fig = None
+        #     self.axes = None
 
         self.timestep = 0
 
