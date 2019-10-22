@@ -8,12 +8,19 @@ Framework for training and testing reinforcement learning agents.
 
 InventoryManagerEnv contains a producer model, a consumer model and the inventory.
 
+# Metric and reward 
 
-# Reward
-- minimze waiting time
-- maximize freshnes
-- minimize waste
+- maximize sales (finished orders)
+- minimize waste (not sold products end of day)
 
+Orders can be a function of:
+
+- time
+- product freshness
+- product availability
+- customer waiting time
+
+depending on consumer model.
 
 ## ProductItem
 **ProductItem(item_type, production_time, expire_time)**
