@@ -29,6 +29,7 @@ return an instance of product item
 
 ### Attributes
 - age: age of the product item
+- uuid: uuid of each product item
 
 ### Methods
 - is_done() -> boolean: return status of whether the product item is ready or not
@@ -61,6 +62,15 @@ Initialize a ProducerModel from config
 
 - producer_state : dict
     - "production_queue" : list([ProductItem[type,age]])
+    - "is_busy" : boolean # if oven is busy
+
+**is_busy() -> boolean**
+
+return status of whether the producer model is producing or not
+
+**_is_all_ready() -> boolean**
+
+return status of whether all the products in the production queue are ready or not
 
 **get_ready_products() -> ready_products**
 
@@ -70,25 +80,19 @@ return ready queue (when products are ready: ready queue; not ready: empty list)
 
 Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of product items into production queue.
 
-- product_type: type of product to produce
-- num_product: number of product to produce
-- return: whether request is accepted or not
+- product_type (int): type of product to produce # index of product ?? layout of config file
+- num_product (int): number of product to produce
 
-**step() -> ReadyQueue**
+Return
+- boolean: whether request is accepted or not
+
+**step() -> None**
 
 1. aging of product items in the production queue
 
-**reset() -> ProductionQueue**
+**reset() -> producer_state**
 
-clear production queue and return production queue
-
-**_is_busy() -> boolean**
-
-return status of whether the producer model is producing or not
-
-**_is_all_ready() -> boolean**
-
-return status of whether all the products in the production queue are ready or not
+clear production queue and return the producer state
 
 ## Consumer Model
 
@@ -104,9 +108,16 @@ Initialize a ProducerModel from config
 - consumer_state: dict
     - "order_queue" : list([Order[item_type]])
 
-**make_orders( inventory_products ) -> new_orders**
+**make_orders( inventory_products, order_queue, time ) -> new_orders**
 
-return new orders
+Return new orders: list(tuple(order_type, num_order))
+
+**_server_orders( inventory_products, time ) -> taken_queue, order_queue**
+Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
+
+Return
+- taken_queue: products that are ready to take
+- order_queue: pending orders (order_queue) # want to remove it
 
 **step() -> None**
 
@@ -114,12 +125,8 @@ add waiting time of orders
 
 **reset() -> OrderQueue**
 
-clear order queue and return order queue
+clear order queue and return consumer status
 
-**_server_orders( inventory_products ) -> ConsumerQueue, OrderQueue**
-
-- consumerQueue: products that are ready to take
-- orderQueue: pending orders
 
 
 ## Inventory

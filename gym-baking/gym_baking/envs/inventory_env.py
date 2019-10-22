@@ -182,7 +182,7 @@ class ConsumerModel():
         return take_queue, new_order_queue
 
 
-class InventoryTrackingEnv(gym.Env):
+class InventoryManagerEnv(gym.Env):
     def __init__(self):
         self.config = {
             0: {'type':'brot','production_time':5, 'expire_time':100},
