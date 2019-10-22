@@ -22,6 +22,20 @@ Orders can be a function of:
 
 depending on consumer model.
 
+**Metric().\_\_init\_\_(config)**
+
+- config(dict) : config from InventoryManagerEnv
+
+**Metric().get_metric(state_history, done) -> reward**
+- state_history(dict) : state history from InventoryManagerEnv, should at least contains taken queue and inventory_state
+- done(bool) : if this episode is done
+
+return
+
+- reward(int): 0 if episode is not done, otherwise reward = sales - wastes
+    - sales(int) : sum of all finished orders
+    - wastes(int) : sum of all products in the inventory
+
 ## ProductItem
 **ProductItem(item_type, production_time, expire_time)**
 

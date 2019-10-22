@@ -181,6 +181,7 @@ class ConsumerModel():
         for order in self._order_queue:
             order.step()
 
+
 class InventoryManagerEnv(gym.Env):
     def __init__(self):
         self.config = {
