@@ -54,7 +54,6 @@ class Inventory():
         
     def take(self, product_id):
         for item in product_id:
-            print(item)
             self._products.remove(item)
         # tmp, self._products = self._products, []
         # for item in product_id:
@@ -314,6 +313,7 @@ class InventoryTrackingEnv(gym.Env):
 
     def get_state_history(self, state):
         in_production = len(state["producer_state"]["production_queue"])
+        is_busy = state["producer_state"]["is_busy"]
         ready_count = Counter([x._item_type for x in state["ready_queue"]])
         taken_count = Counter([x._item_type for x in state["taken_queue"]])
         order_count = Counter([x._item_type for x in state["consumer_state"]["order_queue"]])
@@ -321,7 +321,8 @@ class InventoryTrackingEnv(gym.Env):
         new_order = Counter([x._item_type for x in state["consumer_state"]["debug_new_order_queue"]])
         
         self.state_history.setdefault('in_production', []).append(in_production)
-
+        self.state_history.setdefault('is_busy', []).append(is_busy)
+        
         for key in self.config.keys():
             num_request = state["action"][1] if state["action"][0]==key else 0
             self.state_history.setdefault("action_"+self.config[key]['type'], []).append(num_request)
@@ -344,6 +345,7 @@ class InventoryTrackingEnv(gym.Env):
             self.fig = None
             self.axes = None
 
+
 class Metric():
     def __init__(self, config):
         self.config = config
@@ -359,32 +361,3 @@ class Metric():
             wastes += sum(state_history['inventory_'+key])
         
         return sales - wastes
-
-class Agent(object):
-    def __init__(self, action_space):
-        self.action_space = action_space
-    
-    def act(self, states):
-        isbusy = states["isbusy"]
-        isfresh = states["products"]["is_fresh"]
-        order = states["oders"]["is_empty"]
-        act = f(states, self.action_space)
-        return act
-
-
-def train(agent, env, metric, num_episodes, num_steps):
-    for episode in range(num_episodes):
-
-        states = env.reset()
-        metric.reset()
-
-        for step in range(num_steps):
-
-            action = agent.act(states)
-
-            states, reward, done, info = env.step(action)
-            
-            metric.step()
-
-            if done:
-                break
