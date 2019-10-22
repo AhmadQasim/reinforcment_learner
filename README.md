@@ -208,3 +208,15 @@ for episode in num_episodes:
         if done:
             break
 ```
+
+## Example Random Agent
+```
+class Agent(object):
+    def __init__(self, action_space):
+        self.action_space = action_space
+    
+    def act(self, observation, reward, done):
+        is_busy = observation["producer_model"]["is_busy"]
+        action = f(observation, self.action_space)
+        return action
+```
