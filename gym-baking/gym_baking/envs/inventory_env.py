@@ -55,9 +55,6 @@ class Inventory():
     def take(self, product_id):
         for item in product_id:
             self._products.remove(item)
-        # tmp, self._products = self._products, []
-        # for item in product_id:
-        #     self._products.append(item)
 
     def get_state(self):
         self.state["products"] = self._products.copy()
@@ -322,7 +319,7 @@ class InventoryTrackingEnv(gym.Env):
         
         self.state_history.setdefault('in_production', []).append(in_production)
         self.state_history.setdefault('is_busy', []).append(is_busy)
-        
+
         for key in self.config.keys():
             num_request = state["action"][1] if state["action"][0]==key else 0
             self.state_history.setdefault("action_"+self.config[key]['type'], []).append(num_request)
