@@ -123,7 +123,7 @@ Return
 
 add waiting time of orders
 
-**reset() -> OrderQueue**
+**reset() -> consumer_state**
 
 clear order queue and return consumer status
 
@@ -168,12 +168,28 @@ self._producer_model = ProducerModel()
 self._consumer_model = ConsumerModel()
 self._inventory = Inventory()
 ```
+### Example Config
+```
+        self.config = {
+            0: {'type':'brot','production_time':5, 'expire_time':100},
+            1: {'type':'pretzel','production_time':15, 'expire_time':20},
+        }
+```
 
-**reset()**
+**reset() -> observation**
 
-**seed()**
+reset environment and return observation
 
-**render()**
+**seed() -> seed**
+
+set seed
+
+**render() -> image**
+
+plotting function
+
+return
+- image(numpy.ndarray): numpy version image of the current figure. useful for gym.wrappers.Monitor
 
 **step(action) -> observation, reward, done, info**
 
