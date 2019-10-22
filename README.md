@@ -178,6 +178,7 @@ add products into the inventory
 gym environments for inventory managing
 
 **InventoryManagerEnv(config)**
+
 Initialize a Inventory Manager Environment. Producer model, consumer model and inventory are defined here
 ```
 self._producer_model = ProducerModel()
@@ -202,7 +203,7 @@ self._inventory = Inventory()
 **render() -> image**
 
 return
-- image(numpy.ndarray): numpy image of the current figure. useful for gym.wrappers.Monitor
+- image(numpy.ndarray): numpy image of the current figure. Useful for gym.wrappers.Monitor
 
 **step(action) -> observation, reward, done, info**
 
