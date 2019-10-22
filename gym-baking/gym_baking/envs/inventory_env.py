@@ -194,6 +194,7 @@ class InventoryTrackingEnv(gym.Env):
             1: {'type':'pretzel','production_time':15, 'expire_time':20},
         }
 
+        self._validate_config(self.config)
         self.product_list = [x['type'] for x in self.config.values()]
 
         num_types = len(self.config)
@@ -297,7 +298,7 @@ class InventoryTrackingEnv(gym.Env):
 
         self.axes[2].plot(self.state_history["in_production"], label="in production")
         for key in self.product_list:
-            self.axes[2].plot(self.state_history['ready_queue_'+key], label = 'ready_product'+key)
+            self.axes[2].plot(self.state_history['ready_queue_'+key], label = 'ready_product_'+key)
         self.axes[2].legend(loc="upper right")
         self.axes[2].set_title("producer model")
 
@@ -340,6 +341,9 @@ class InventoryTrackingEnv(gym.Env):
             self.fig = None
             self.axes = None
 
+    def _validate_config(self, config):
+        product_list = [x['type'] for x in config.values()]
+        assert len(set(product_list)) == len(config)
 
 class Metric():
     def __init__(self, env):
