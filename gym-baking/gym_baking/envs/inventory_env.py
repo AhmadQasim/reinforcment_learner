@@ -52,8 +52,8 @@ class Inventory():
         for item in product:
             self._products.append(item)
         
-    def take(self, product_id):
-        for item in product_id:
+    def take(self, taken_queue):
+        for item in taken_queue:
             self._products.remove(item)
 
     def get_state(self):
