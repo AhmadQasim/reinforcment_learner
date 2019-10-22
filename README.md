@@ -181,18 +181,14 @@ self._inventory = Inventory()
 
 **reset() -> observation**
 
-reset environment and return observation
 
 **seed() -> seed**
 
-set seed
 
 **render() -> image**
 
-plotting function
-
 return
-- image(numpy.ndarray): numpy version image of the current figure. useful for gym.wrappers.Monitor
+- image(numpy.ndarray): numpy image of the current figure. useful for gym.wrappers.Monitor
 
 **step(action) -> observation, reward, done, info**
 
@@ -212,10 +208,12 @@ def step(self,action):
     self._inventory.step()
 
     states = get_states()
-    reward = reward_function()
+    state_history = get_state_history()
+    observations = {key:states[key] for key in ["producer_state", "consumer_state", "inventory_state"]}
     done = episode_is_done()
+    reward = reward_function(state_history)
     
-    return states, reward, done, {}
+    return observations, reward, done, {}
 ```
 
 
