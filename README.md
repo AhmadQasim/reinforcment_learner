@@ -140,9 +140,9 @@ Inventory to keep track of products
 - inventory_state : dict
     - "products" : list(ProductItem) # products in the inventory
 
-**reset() -> InventoryState**
+**reset() -> inventory_state**
 
-- InventoryState: list of products
+clear products list and return state
 
 **step() -> None**
 
@@ -150,24 +150,27 @@ Inventory to keep track of products
 
 **take(products) -> None**
 
-- take products from the inventory
+take products from the inventory
+- products(list): a list of ProductItem that will be taken from the inventory
 
 **add(products) -> None**
 
-- add products into the inventory
+add products into the inventory
+
+-products(list): a list of ProductItem that will be added into the inventory
 
 ## InventoryManagerEnv
 
 gym environments for inventory managing
 
-**InventoryManagerEnv()**
-
+**InventoryManagerEnv(config)**
 Initialize a Inventory Manager Environment. Producer model, consumer model and inventory are defined here
 ```
 self._producer_model = ProducerModel()
 self._consumer_model = ConsumerModel()
 self._inventory = Inventory()
 ```
+
 ### Example Config
 ```
         self.config = {

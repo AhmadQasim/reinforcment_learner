@@ -7,5 +7,5 @@ register(
 
 register(
     id='Inventory-v0',
-    entry_point = 'gym_baking.envs:InventoryTrackingEnv',
+    entry_point = 'gym_baking.envs:InventoryManagerEnv',
 )
