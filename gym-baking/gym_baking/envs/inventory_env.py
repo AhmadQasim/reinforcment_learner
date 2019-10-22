@@ -138,10 +138,6 @@ class ConsumerModel():
             self._debug_new_order_queue.append(order)
         return num_new_order, type_ids
 
-    def step(self):
-        for order in self._order_queue:
-            order.step()
-
     def _serve_orders(self, inventory_products, timestep):
         """
         split orders and available, remove orders from the order queue
@@ -181,6 +177,9 @@ class ConsumerModel():
 
         return take_queue, new_order_queue
 
+    def step(self):
+        for order in self._order_queue:
+            order.step()
 
 class InventoryManagerEnv(gym.Env):
     def __init__(self):
