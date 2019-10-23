@@ -6,9 +6,14 @@ import numpy as np
 from six.moves import cPickle as pickle
 import json, sys, os
 from os import path
-from _policies import BinaryActionLinearPolicy
+import time
+import matplotlib.pyplot as plt
+# from agents._policies import BinaryActionLinearPolicy as LinearPolicy
+from agents._policies import LinearActionLinearPolicy as LinearPolicy
+
 import argparse
 import gym_baking
+from inventory_wrapper import InventoryQueueToVector
 
 def cem(f, th_mean, batch_size, n_iter, elite_frac, initial_std=1.0):
     """
@@ -43,6 +48,10 @@ def do_rollout(agent, env, num_steps, render=False):
         (ob, reward, done, _info) = env.step(a)
         total_rew += reward
         if done: break
+    if render:
+        print(_info)
+        plt.savefig(str(int(time.time()*1000)) +'.jpg')
+        env.close()
     return total_rew, t+1
 
 if __name__ == '__main__':
@@ -51,18 +60,30 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--display', action='store_true')
     parser.add_argument('target', nargs="?", default="CartPole-v0")
+    parser.add_argument('--test', action='store_true')
     args = parser.parse_args()
 
     env = gym.make(args.target)
-    env.seed(1)
-    params = dict(n_iter=15, batch_size=25, elite_frac=0.2)
-    num_steps = 50
+    # env.seed(1)
+    params = dict(n_iter=100, batch_size=25, elite_frac=0.2)
+    num_steps = 200
 
     # You provide the directory to write to (can be an existing
     # directory, but can't contain previous monitor results. You can
     # also dump to a tempdir if you'd like: tempfile.mkdtemp().
     outdir = 'cem-agent-results'
     # env = wrappers.Monitor(env, outdir, force=True)
+    if 'Inventory-v0' in args.target:
+        env = InventoryQueueToVector(env)
+
+
+    if args.test:
+        model_path = 'cem_agent.npy'
+        print('start test model {}'.format(model_path))
+        theta = np.load(model_path)
+        agent = LinearPolicy(theta)
+        do_rollout(agent, env, 200, True)
+        exit()
 
     # Prepare snapshotting
     # ----------------------------------------
@@ -75,25 +96,30 @@ if __name__ == '__main__':
     # ------------------------------------------
 
     def noisy_evaluation(theta):
-        policy = BinaryActionLinearPolicy
+        policy = LinearPolicy
         agent = policy(theta)
         rew, T = do_rollout(agent, env, num_steps)
         return rew
 
     # Train the agent, and snapshot each stage
-    for (i, iterdata) in enumerate(cem(noisy_evaluation, np.zeros(env.observation_space.shape[0]+1), **params)):
+    if 'Inventory-v0' in args.target:
+        th_init = np.zeros(env.observation_space.shape[0])
+    else:
+        th_init = np.zeros(env.observation_space.shape[0]+1)
+
+    for (i, iterdata) in enumerate(cem(noisy_evaluation, th_init, **params)):
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
-        if i==0:
-            agent = BinaryActionLinearPolicy(iterdata['theta_init'])
-            do_rollout(agent, env, 100, render=True)
+        if i%10==0:
+            agent = LinearPolicy(iterdata['theta_mean'])
+            do_rollout(agent, env, 200, render=True)
 
 
-    agent = BinaryActionLinearPolicy(iterdata['theta_mean'])
-    if args.display:
-        do_rollout(agent, env, 100, render=True)
+    agent = LinearPolicy(iterdata['theta_mean'])
+    do_rollout(agent, env, 200, render=True)
 
     # Write out the env at the end so we store the parameters of this
     # environment.
+    np.save('cem_agent.npy', iterdata['theta_mean'])
     writefile('info.json', json.dumps(info))
 
     env.close()
