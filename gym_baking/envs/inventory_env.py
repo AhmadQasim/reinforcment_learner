@@ -1,6 +1,7 @@
 import copy
 from collections import Counter
 import uuid
+import yaml
 import numpy as np
 import gym
 from gym import spaces
@@ -150,9 +151,7 @@ class ConsumerModel():
 
         order_counter = Counter([x._item_type for x in self._order_queue])
         product_counter = Counter([x._item_type for x in inventory_products])
-        
         union_counter = order_counter & product_counter
-
         order_counter.subtract(union_counter)
 
         # update order queue
@@ -183,11 +182,11 @@ class ConsumerModel():
 
 
 class InventoryManagerEnv(gym.Env):
-    def __init__(self):
-        self.config = {
-            0: {'type':'brot','production_time':5, 'expire_time':100},
-            1: {'type':'pretzel','production_time':15, 'expire_time':20},
-        }
+    def __init__(self, config_path):
+        with open(config_path, 'r') as f:
+            config = yaml.load(f, Loader=yaml.Loader)
+        
+        self.config = config['product_list']
 
         self._validate_config(self.config)
         self.product_list = [x['type'] for x in self.config.values()]
