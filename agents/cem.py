@@ -59,21 +59,24 @@ if __name__ == '__main__':
     logger.set_level(logger.INFO)
 
     parser = argparse.ArgumentParser()
+    parser.add_argument('target', nargs="?", default="CartPole-v0")
+    parser.add_argument('-t', '--num_iter', type=int, default=100)
     parser.add_argument('--display', action='store_true')
     parser.add_argument('--verbose', action='store_true')
-    parser.add_argument('target', nargs="?", default="CartPole-v0")
     parser.add_argument('--test', action='store_true')
     args = parser.parse_args()
 
     env = gym.make(args.target)
     # env.seed(1)
-    params = dict(n_iter=100, batch_size=25, elite_frac=0.2)
+    params = dict(n_iter=args.num_iter, batch_size=25, elite_frac=0.2)
     num_steps = 200
 
     # You provide the directory to write to (can be an existing
     # directory, but can't contain previous monitor results. You can
     # also dump to a tempdir if you'd like: tempfile.mkdtemp().
     outdir = 'cem-agent-results'
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
     # env = wrappers.Monitor(env, outdir, force=True)
     if 'Inventory-v0' in args.target:
         env = InventoryQueueToVector(env)
