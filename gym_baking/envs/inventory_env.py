@@ -170,11 +170,11 @@ class ConsumerModel():
         for item in inventory_products:
             inventory_dict.setdefault(item._item_type, []).append(item)
 
-        take_queue = []
+        taken_queue = []
         for item_type, num in union_counter.items():
-            take_queue += inventory_dict.get(item_type, [])[:num]      
+            taken_queue += inventory_dict.get(item_type, [])[:num]      
 
-        return take_queue, new_order_queue
+        return taken_queue
 
     def step(self):
         for order in self._order_queue:
@@ -187,7 +187,7 @@ class InventoryManagerEnv(gym.Env):
             config = yaml.load(f, Loader=yaml.Loader)
         
         self.config = config['product_list']
-
+        self.episode_max_steps = config['episode_max_steps']
         self._validate_config(self.config)
         self.product_list = [x['type'] for x in self.config.values()]
 
@@ -235,7 +235,7 @@ class InventoryManagerEnv(gym.Env):
         ready_products = self._producer_model.get_ready_products()
         self._inventory.add(ready_products)
         curr_products = self._inventory.get_state()["products"]
-        taken_products, orderqueue = self._consumer_model._serve_orders(curr_products, self.timestep)
+        taken_products = self._consumer_model._serve_orders(curr_products, self.timestep)
         self._inventory.take(taken_products)
         self._producer_model.start_producing(action[0], action[1])
         self._producer_model.step()
@@ -255,7 +255,7 @@ class InventoryManagerEnv(gym.Env):
         
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
         
-        done = self.timestep>100
+        done = self.timestep>self.episode_max_steps
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
