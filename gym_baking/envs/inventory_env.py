@@ -193,7 +193,8 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.config.values()]
 
         num_types = len(self.config)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,15]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,30]), dtype=np.int64)
+        self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.config)
         self._inventory = Inventory()
@@ -212,12 +213,6 @@ class InventoryManagerEnv(gym.Env):
         return [seed]
 
     def reset(self):
-        # if plt.get_fignums():
-        #     plt.ioff()
-        #     plt.show()
-        #     self.fig = None
-        #     self.axes = None
-
         self.timestep = 0
 
         self.state["timestep"] = 0
@@ -235,7 +230,7 @@ class InventoryManagerEnv(gym.Env):
         return observation
 
     def step(self, action):
-        assert self.action_space.contains(action)
+        assert self.action_space.contains(action), "invalid action {}".format(action)
         self.act = action
  
         ready_products = self._producer_model.get_ready_products()
@@ -263,9 +258,9 @@ class InventoryManagerEnv(gym.Env):
         
         done = self.timestep>100
 
-        reward = self._metric.get_metric(self.state_history, done)
+        reward, metric_info = self._metric.get_metric(self.state_history, done)
 
-        return observation, reward, done, {}
+        return observation, reward, done, metric_info
 
     def render(self, mode='human', close=False):
         if not self.state_history:
@@ -349,12 +344,27 @@ class Metric():
         self.product_list = [x["type"] for x in self.config.values()]
 
     def get_metric(self, state_history, done):
+        info = {}
         if not done:
-            return 0
+            return 0, info
         sales = 0
+        waits = 0
         wastes = 0
+        products = 0
         for key in self.product_list:
             sales += sum(state_history['taken_queue_'+key])
-            wastes += sum(state_history['inventory_'+key])
+            waits += state_history['order_queue_'+key][-1]
+            products += sum(state_history['ready_queue_'+key])
+            wastes += state_history['inventory_'+key][-1]
         
-        return sales - wastes
+        sale_wait_ratio = sales/(sales + waits) if sales + waits>0 else 0
+        product_waste_ratio = products/(products+wastes) if products+wastes>0 else 0
+        score = (sale_wait_ratio + product_waste_ratio)/2
+
+        info["sales"] = sales
+        info["waits"] = waits
+        info["products"] = products
+        info["wastes"] = wastes
+        info["sale_wait_ratio"] = sale_wait_ratio
+        info["product_waste_ratio"] = product_waste_ratio
+        return score, info
