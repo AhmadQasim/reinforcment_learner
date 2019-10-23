@@ -126,12 +126,11 @@ Initialize a ProducerModel from config
 
 Return new orders: list(tuple(order_type, num_order))
 
-**_server_orders( inventory_products, time ) -> taken_queue, order_queue**
+**_server_orders( inventory_products, time ) -> taken_queue**
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
 
 Return
 - taken_queue: products that are ready to take
-- order_queue: pending orders (order_queue) # want to remove it
 
 **step() -> None**
 
@@ -177,7 +176,7 @@ add products into the inventory
 
 gym environments for inventory managing
 
-**InventoryManagerEnv(config)**
+**InventoryManagerEnv(config_path)**
 
 Initialize a Inventory Manager Environment. Producer model, consumer model and inventory are defined here
 ```
@@ -188,10 +187,20 @@ self._inventory = Inventory()
 
 ### Example Config
 ```
-        self.config = {
-            0: {'type':'brot','production_time':5, 'expire_time':100},
-            1: {'type':'pretzel','production_time':15, 'expire_time':20},
-        }
+title: "Inventory Manager Environment"
+description: "Config for inventory manager environment"
+product_list:
+  0:
+    type: brot
+    production_time: 5
+    expire_time: 100
+  
+  1:
+    type: pretzel
+    production_time: 15
+    expire_time: 20
+
+episode_max_steps: 100
 ```
 
 **reset() -> observation**
@@ -215,7 +224,7 @@ def step(self,action):
     ready_products = self._producer_model.get_ready_products()
     self._inventory.add(ready_products)
     curr_products = self._inventory.get_state()["products"]
-    consumption_products, orderqueue = self._consumer_model._serve_orders(curr_products)
+    consumption_products = self._consumer_model._serve_orders(curr_products)
     self._inventory.take(consumption_products)
     self._producer_model.start_producing(action)
     self._producer_model.step()
