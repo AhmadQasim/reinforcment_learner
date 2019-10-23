@@ -49,7 +49,8 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
         total_rew += reward
         if done: break
     if verbose:
-        print(_info)
+        for key, value in _info.items():
+            logger.info('%s : %s', *[key, value])
     if render:
         plt.savefig(str(int(time.time()*1000)) +'.jpg')
         env.close()
@@ -59,14 +60,17 @@ if __name__ == '__main__':
     logger.set_level(logger.INFO)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('target', nargs="?", default="CartPole-v0")
+    parser.add_argument('target', nargs="?", default="Baking-v0")
     parser.add_argument('-t', '--num_iter', type=int, default=100)
     parser.add_argument('--display', action='store_true')
     parser.add_argument('--verbose', action='store_true')
     parser.add_argument('--test', action='store_true')
     args = parser.parse_args()
 
-    env = gym.make(args.target)
+    if 'Inventory-v0' in args.target:
+        env = gym.make("gym_baking:Inventory-v0", config_path="inventory.yaml")
+    else:
+        env = gym.make(args.target)
     # env.seed(1)
     params = dict(n_iter=args.num_iter, batch_size=25, elite_frac=0.2)
     num_steps = 200

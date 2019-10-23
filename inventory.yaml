@@ -10,3 +10,5 @@ product_list:
     type: pretzel
     production_time: 15
     expire_time: 20
+
+episode_max_steps: 100

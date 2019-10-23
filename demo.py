@@ -20,7 +20,10 @@ ap = parser.parse_args()
 if not os.path.exists(ap.output_dir):
     os.makedirs(ap.output_dir)
 
-env = gym.make(ap.env_id)
+if 'Inventory-v0' in ap.env_id:
+    env = gym.make('gym_baking:Inventory-v0', config_path = 'inventory.yaml')
+else:
+    env = gym.make(ap.env_id)
 agent = RandomAgent(env.action_space)
 env.seed(0)
 
