@@ -129,7 +129,7 @@ class ConsumerModel():
         return self.state
 
     def make_orders(self, inventory_products, order_queue, timestep):
-        num_new_order = np.random.randint(0,3)
+        num_new_order = np.random.randint(0,6)
         type_ids = np.random.choice(len(self.config), num_new_order, replace=True)
 
         self._debug_new_order_queue = []
