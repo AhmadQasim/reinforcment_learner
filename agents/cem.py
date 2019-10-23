@@ -38,7 +38,7 @@ def cem(f, th_mean, batch_size, n_iter, elite_frac, initial_std=1.0):
         th_std = elite_ths.std(axis=0)
         yield {'ys' : ys, 'theta_mean' : th_mean, 'y_mean' : ys.mean(), 'theta_init':ths[0]}
 
-def do_rollout(agent, env, num_steps, render=False):
+def do_rollout(agent, env, num_steps, render=False, verbose=False):
     total_rew = 0
     ob = env.reset()
     for t in range(num_steps):
@@ -48,8 +48,9 @@ def do_rollout(agent, env, num_steps, render=False):
         (ob, reward, done, _info) = env.step(a)
         total_rew += reward
         if done: break
-    if render:
+    if verbose:
         print(_info)
+    if render:
         plt.savefig(str(int(time.time()*1000)) +'.jpg')
         env.close()
     return total_rew, t+1
@@ -59,6 +60,7 @@ if __name__ == '__main__':
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--display', action='store_true')
+    parser.add_argument('--verbose', action='store_true')
     parser.add_argument('target', nargs="?", default="CartPole-v0")
     parser.add_argument('--test', action='store_true')
     args = parser.parse_args()
@@ -82,7 +84,7 @@ if __name__ == '__main__':
         print('start test model {}'.format(model_path))
         theta = np.load(model_path)
         agent = LinearPolicy(theta)
-        do_rollout(agent, env, 200, True)
+        do_rollout(agent, env, 200, args.display, verbose=args.verbose)
         exit()
 
     # Prepare snapshotting
@@ -111,11 +113,11 @@ if __name__ == '__main__':
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
         if i%10==0:
             agent = LinearPolicy(iterdata['theta_mean'])
-            do_rollout(agent, env, 200, render=True)
+            do_rollout(agent, env, 200, render=args.display, verbose=args.verbose)
 
 
     agent = LinearPolicy(iterdata['theta_mean'])
-    do_rollout(agent, env, 200, render=True)
+    do_rollout(agent, env, 200, render=args.display, verbose=args.verbose)
 
     # Write out the env at the end so we store the parameters of this
     # environment.
