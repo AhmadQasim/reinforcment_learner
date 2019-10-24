@@ -66,9 +66,7 @@ Orders can be a function of:
 
 depending on consumer model.
 
-**class Metric**
-
-**\_\_init\_\_(config)**
+**class Metric(config)**
 
 Initialize an instance of Metric from config. Config is a dictionary contains products indices and attributes. It's parsed from the InventoryManagerEnv. You can find the example of config below.
 
