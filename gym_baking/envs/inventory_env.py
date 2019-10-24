@@ -101,7 +101,10 @@ class ProducerModel():
             return False
 
         for i in range(num_product):
-            item = ProductItem(self.config[product_type]["type"], self.config[product_type]["production_time"], self.config[product_type]["expire_time"])
+            item = ProductItem(
+                self.config[product_type]["type"],
+                self.config[product_type]["production_time"], 
+                self.config[product_type]["expire_time"])
             self._production_queue.append(item)
         
         return True
