@@ -8,5 +8,6 @@ setup(name='gym_baking',
             'numpy',
             'matplotlib',
             'gym',
+            'PyYAML',
             ],
 )
