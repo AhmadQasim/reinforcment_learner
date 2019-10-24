@@ -173,7 +173,7 @@ aging of product items in the production queue
 clear production queue and return the producer state
 
 ## Consumer Model
-The consumer model makes orders based on the information of currently available inventory products, the entire products list, timestep, and current state of order queue. The base model has a private function called _serve_order to add new orders into order queue, compare order queue with inventory products, and return a serve queue which contains products that are ready to be taken from the inventory. Users should model new orders by "make_order" method of the consumer model.
+The consumer model makes orders based on the information of currently available inventory products, the entire products list, timestep, and current state of order queue. The base model has a private function called "_serve_order" to add new orders into order queue, compare order queue with inventory products, and return a serve queue which contains products that are ready to be taken from the inventory. Users should model new orders by "make_order" method of the consumer model.
 
 **ConsumerModel(config)**
 
@@ -195,7 +195,7 @@ Return new orders: list(tuple(order_type, num_order)) # ?? should define a stand
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
 
 Return
-- serve_queue: products that are ready to take
+- serve_queue: products that are ready to be taken from the inventory
 
 **step() -> None**
 
@@ -209,7 +209,7 @@ clear order queue and return consumer status
 
 ## Inventory
 
-Inventory to keep track of products
+Inventory keeps track of products that are newly produced and taken from consumer.
 
 ### Methods
 
@@ -235,25 +235,36 @@ take products from the inventory
 
 add products into the inventory
 
--products(list): a list of ProductItem that will be added into the inventory
+-products(list): a list of ProductItem that will be added into the inventory. The user are responsible to make sure that all products are available in the inventory.
+
 
 ## InventoryManagerEnv
 
-gym environments for inventory managing
+InventoryManagerEnv is an environment in gym. It captures inventory dynamics through the managment of producer model, consumer model and inventory.  As a gym environment object, it performs step transformation and return reward. It has basic functions including step, render, reset and seed.
 
-**InventoryManagerEnv(config_path)**
+**class InventoryManagerEnv(config_path)**
 
-Initialize a Inventory Manager Environment. Producer model, consumer model and inventory are defined here
+Initialize a Inventory Manager Environment from a config.yaml file. The config file are parsed into a dictionary. Then the dictory is passed into producer, consumer, inventory and metric
+
+
 ```
-self._producer_model = ProducerModel()
-self._consumer_model = ConsumerModel()
-self._inventory = Inventory()
+gym.make("gym_baking:Inventory-v0", config_path = /path/to/config_file)
+...
+
+class InventoryManagerEnv():
+    def __init__(self, config_path)
+        config = yaml.load(config_path)
+        self._producer_model = ProducerModel(config)
+        self._consumer_model = ConsumerModel(config)
+        self._inventory = Inventory(config)
+        self._metric = Metric(config)
 ```
 
 ### Example Config
 ```
 title: "Inventory Manager Environment"
 description: "Config for inventory manager environment"
+
 product_list:
   0:
     type: brot
@@ -270,11 +281,15 @@ episode_max_steps: 100
 
 **reset() -> observation**
 
+reset the environment and return observation
 
 **seed() -> seed**
 
+add seed for environment
 
 **render() -> image**
+
+plottings of some entities
 
 return
 - image(numpy.ndarray): numpy image of the current figure. Useful for gym.wrappers.Monitor
@@ -283,7 +298,7 @@ return
 
 Run one timestep of the environment
 
-### example step workflow
+### example step
 ```
 def step(self,action):
     ready_products = self._producer_model.get_ready_products()
@@ -300,15 +315,15 @@ def step(self,action):
     state_history = get_state_history()
     observations = {key:states[key] for key in ["producer_state", "consumer_state", "inventory_state"]}
     done = episode_is_done()
-    reward = reward_function(state_history)
+    reward, metric_info = self._metric.get_metric(state_history, done)
     
-    return observations, reward, done, {}
+    return observations, reward, done, metric_info
 ```
 
 
 ## Example Inventory Manager Environment
 ```
-env = gym.make('gym_baking:Inventory-v0') # load environment
+env = gym.make('gym_baking:Inventory-v0', config_path="inventory.yaml") # load environment
 
 for episode in num_episodes:
     observation = env.reset() # reset environment
@@ -332,4 +347,10 @@ class Agent(object):
         is_busy = observation["producer_model"]["is_busy"]
         action = f(observation, self.action_space)
         return action
+```
+
+## Example Learning with CEM-Agent
+extract information from observation space
+```
+
 ```
