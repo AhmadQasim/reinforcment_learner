@@ -49,8 +49,7 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
         total_rew += reward
         if done: break
     if verbose:
-        for key, value in _info.items():
-            logger.info('%s : %s', *[key, value])
+        print(_info)
     if render:
         plt.savefig(str(int(time.time()*1000)) +'.jpg')
         env.close()
@@ -118,7 +117,7 @@ if __name__ == '__main__':
 
     for (i, iterdata) in enumerate(cem(noisy_evaluation, th_init, **params)):
         print('Iteration %2i. Episode mean reward: %7.3f'%(i, iterdata['y_mean']))
-        if i%10==0:
+        if i%5==0:
             agent = LinearPolicy(iterdata['theta_mean'])
             do_rollout(agent, env, 200, render=args.display, verbose=args.verbose)
 
