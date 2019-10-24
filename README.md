@@ -249,9 +249,10 @@ Initialize a Inventory Manager Environment from a config.yaml file. The config f
 **action space**
 ```math
 R^2
-- \in [0, num_products]
-- \in [0, inf]
 ```
+
+- [0, num_products]
+- [0, inf]
 
 **observation space**
 - production_queue list(ProductItem)
