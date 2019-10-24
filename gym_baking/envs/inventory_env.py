@@ -124,22 +124,16 @@ class ConsumerModel():
 
     def reset(self):
         self._order_queue.clear()
-        self._debug_new_order_queue = []
         return self.get_state()
 
     def get_state(self):
         self.state["order_queue"] = self._order_queue.copy()
-        self.state["debug_new_order_queue"] = self._debug_new_order_queue.copy()
         return self.state
 
     def make_orders(self, inventory_products, order_queue, timestep):
         num_new_order = np.random.randint(0,6)
         type_ids = np.random.choice(len(self.config), num_new_order, replace=True)
 
-        self._debug_new_order_queue = []
-        for i in range(num_new_order):
-            order = Order(self.config[type_ids[i]]['type'])
-            self._debug_new_order_queue.append(order)
         return num_new_order, type_ids
 
     def _serve_orders(self, inventory_products, timestep):
@@ -285,7 +279,6 @@ class InventoryManagerEnv(gym.Env):
 
         for key in self.product_list:
             self.axes[1].plot(self.state_history["action_"+key], label = 'action_'+key)
-            self.axes[1].plot(self.state_history["debug_new_order_"+key], label = 'new_order_'+key)
         self.axes[1].legend(loc="upper right")
         self.axes[1].set_title("step actions")
 
@@ -312,7 +305,6 @@ class InventoryManagerEnv(gym.Env):
         taken_count = Counter([x._item_type for x in state["serve_queue"]])
         order_count = Counter([x._item_type for x in state["consumer_state"]["order_queue"]])
         inventory_count = Counter([x._item_type for x in state["inventory_state"]["products"]])
-        new_order = Counter([x._item_type for x in state["consumer_state"]["debug_new_order_queue"]])
         
         self.state_history.setdefault('in_production', []).append(in_production)
         self.state_history.setdefault('is_busy', []).append(is_busy)
@@ -327,7 +319,6 @@ class InventoryManagerEnv(gym.Env):
             self.state_history.setdefault('production_queue_'+key, []).append(order_count[key])
             self.state_history.setdefault('ready_queue_'+key, []).append(ready_count[key])
             self.state_history.setdefault('serve_queue_'+key, []).append(taken_count[key])
-            self.state_history.setdefault('debug_new_order_'+key, []).append(new_order[key])
 
     def _validate_config(self, config):
         product_list = [x['type'] for x in config.values()]
