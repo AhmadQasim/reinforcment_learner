@@ -192,6 +192,7 @@ Initialize a ProducerModel from config
 Return new orders: num_of_orders, list(item_type))
 
 **_server_orders( inventory_products, time ) -> serve_queue**
+
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
 
 Return
@@ -247,12 +248,12 @@ InventoryManagerEnv is an environment in gym. It captures inventory dynamics thr
 Initialize a Inventory Manager Environment from a config.yaml file. The config file are parsed into a dictionary. Then the dictory is passed into producer, consumer, inventory and metric
 
 **action space**
-```math
+```
 R^2
 ```
 
 - [0, num_products]
-- [0, inf]
+- [0, +inf]
 
 **observation space**
 - production_queue list(ProductItem)
