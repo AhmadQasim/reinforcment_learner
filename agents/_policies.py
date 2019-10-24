@@ -3,27 +3,20 @@ class BinaryActionLinearPolicy(object):
     def __init__(self, theta):
         self.w = theta[:-1]
         self.b = theta[-1]
-        # print(theta)
     def act(self, ob):
         y = ob.dot(self.w) + self.b
         a = int(y < 0)
         return a
 
-class BinaryActionNonLinearPolicy(object):
+class LinearActionLinearPolicy(object):
     def __init__(self, theta):
-        assert len(theta)==13 , 'hard coded 2 layer NN'
-        # self.w1 = np.zeros((3,2))
-        # self.b1 = np.zeros((3,))
-        # self.w2 = np.zeros(3)
-        # self.b2= np.zeros(1)
-        self.w1 = theta[:6].reshape(3,2)
-        self.b1 = theta[6:9]
-        self.w2=theta[9:-1]
-        self.b2=theta[-1]
-    def act(self, ob):
-        x = np.dot(self.w1, ob) + self.b1
-        # x = np.maximum(0, x)
-        x = 1/(1+np.exp(-x))
-        x = x.dot(self.w2) + self.b2
-        a = int(x<0)
-        return a
+        # theta: [(n * 3) * (n + 1) + (n+1)]
+        assert len(theta) == 21 # only supports two products classes
+        self.w = theta[:-3].reshape(6,3)
+        self.b = theta[-3:]
+    def act(self,ob):
+        action = np.zeros(2, dtype=np.int64)
+        y = ob.dot(self.w) + self.b
+        action[0] = np.argmax(y[:2]) # classification: which product to produce
+        action[1] = min(max(0, int(y[2])), 30) # amount of product to produce
+        return action

@@ -1,0 +1,9 @@
+*.egg-info/
+*.egg
+__pycache__/
+.ipynb_checkpoints
+*.py[cod]
+*.pkl
+*.idea
+*results/
+.vscode/*

@@ -1,0 +1,15 @@
+title: "Inventory Manager Environment"
+description: "Config for inventory manager environment"
+
+product_list:
+  0:
+    type: brot
+    production_time: 5
+    expire_time: 100
+  
+  1:
+    type: pretzel
+    production_time: 15
+    expire_time: 20
+
+episode_max_steps: 100
