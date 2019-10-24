@@ -53,8 +53,8 @@ class Inventory():
         for item in product:
             self._products.append(item)
         
-    def take(self, taken_queue):
-        for item in taken_queue:
+    def take(self, serve_queue):
+        for item in serve_queue:
             self._products.remove(item)
 
     def get_state(self):
@@ -165,16 +165,16 @@ class ConsumerModel():
 
         self._order_queue = new_order_queue
 
-        # update take queue
+        # update serve queue
         inventory_dict = {}
         for item in inventory_products:
             inventory_dict.setdefault(item._item_type, []).append(item)
 
-        taken_queue = []
+        serve_queue = []
         for item_type, num in union_counter.items():
-            taken_queue += inventory_dict.get(item_type, [])[:num]      
+            serve_queue += inventory_dict.get(item_type, [])[:num]      
 
-        return taken_queue
+        return serve_queue
 
     def step(self):
         for order in self._order_queue:
@@ -217,7 +217,7 @@ class InventoryManagerEnv(gym.Env):
         self.state["timestep"] = 0
         self.state["action"] = None
         self.state["ready_queue"] = []
-        self.state["taken_queue"] = []
+        self.state["serve_queue"] = []
         self.state["consumer_state"] = self._consumer_model.reset()
         self.state["producer_state"] = self._producer_model.reset()
         self.state["inventory_state"] = self._inventory.reset()
@@ -245,7 +245,7 @@ class InventoryManagerEnv(gym.Env):
         self.state["timestep"] = self.timestep
         self.state["action"] = action
         self.state["ready_queue"] = ready_products
-        self.state["taken_queue"] = taken_products
+        self.state["serve_queue"] = taken_products
         self.state["consumer_state"] = self._consumer_model.get_state()
         self.state["producer_state"] = self._producer_model.get_state()
         self.state["inventory_state"] = self._inventory.get_state()
@@ -293,7 +293,7 @@ class InventoryManagerEnv(gym.Env):
         self.axes[2].set_title("producer model")
 
         for key in self.product_list:
-            self.axes[3].plot(self.state_history["taken_queue_"+key], label = 'taken_queue_'+key)
+            self.axes[3].plot(self.state_history["serve_queue_"+key], label = 'serve_queue_'+key)
         self.axes[3].legend(loc="upper right")
         self.axes[3].set_title("consumer model")
 
@@ -306,7 +306,7 @@ class InventoryManagerEnv(gym.Env):
         in_production = len(state["producer_state"]["production_queue"])
         is_busy = state["producer_state"]["is_busy"]
         ready_count = Counter([x._item_type for x in state["ready_queue"]])
-        taken_count = Counter([x._item_type for x in state["taken_queue"]])
+        taken_count = Counter([x._item_type for x in state["serve_queue"]])
         order_count = Counter([x._item_type for x in state["consumer_state"]["order_queue"]])
         inventory_count = Counter([x._item_type for x in state["inventory_state"]["products"]])
         new_order = Counter([x._item_type for x in state["consumer_state"]["debug_new_order_queue"]])
@@ -323,7 +323,7 @@ class InventoryManagerEnv(gym.Env):
             self.state_history.setdefault('order_queue_'+key, []).append(order_count[key])
             self.state_history.setdefault('production_queue_'+key, []).append(order_count[key])
             self.state_history.setdefault('ready_queue_'+key, []).append(ready_count[key])
-            self.state_history.setdefault('taken_queue_'+key, []).append(taken_count[key])
+            self.state_history.setdefault('serve_queue_'+key, []).append(taken_count[key])
             self.state_history.setdefault('debug_new_order_'+key, []).append(new_order[key])
 
     def _validate_config(self, config):
@@ -351,7 +351,7 @@ class Metric():
         wastes = 0
         products = 0
         for key in self.product_list:
-            sales += sum(state_history['taken_queue_'+key])
+            sales += sum(state_history['serve_queue_'+key])
             waits += state_history['order_queue_'+key][-1]
             products += sum(state_history['ready_queue_'+key])
             wastes += state_history['inventory_'+key][-1]

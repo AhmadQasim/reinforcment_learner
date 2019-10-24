@@ -1,8 +1,10 @@
-**__pycache__**
-**.ipynb_checkpoints**
-*.pyc
+*.egg-info/
+*.egg
+__pycache__/
+.ipynb_checkpoints
+*.py[cod]
 *.jpg
 *.pkl
 *.idea
-results/*
+*results/
 .vscode/*

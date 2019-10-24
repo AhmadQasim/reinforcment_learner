@@ -126,11 +126,11 @@ Initialize a ProducerModel from config
 
 Return new orders: list(tuple(order_type, num_order))
 
-**_server_orders( inventory_products, time ) -> taken_queue**
+**_server_orders( inventory_products, time ) -> serve_queue**
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
 
 Return
-- taken_queue: products that are ready to take
+- serve_queue: products that are ready to take
 
 **step() -> None**
 
