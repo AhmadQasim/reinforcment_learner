@@ -162,11 +162,11 @@ class ConsumerModel():
         for order in self._order_queue:
             order_dict.setdefault(order._item_type, []).append(order)       
        
-        new_order_queue = []
+        tmp_order_queue = []
         for item_type, num in order_counter.items():
-            new_order_queue += order_dict.get(item_type, [])[:num]
+            tmp_order_queue += order_dict.get(item_type, [])[:num]
 
-        self._order_queue = new_order_queue
+        self._order_queue = tmp_order_queue
 
         # update serve queue
         inventory_dict = {}
