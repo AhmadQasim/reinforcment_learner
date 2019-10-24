@@ -189,7 +189,7 @@ Initialize a ProducerModel from config
 
 **make_orders( inventory_products, order_queue, time ) -> new_orders**
 
-Return new orders: list(tuple(order_type, num_order)) # ?? should define a standard format
+Return new orders: num_of_orders, list(item_type))
 
 **_server_orders( inventory_products, time ) -> serve_queue**
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products
