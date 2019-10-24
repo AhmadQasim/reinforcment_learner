@@ -234,7 +234,7 @@ take products from the inventory
 
 add products into the inventory
 
--products(list): a list of ProductItem that will be added into the inventory. The user are responsible to make sure that all products are available in the inventory.
+-products(list): a list of ProductItem that will be added into the inventory. The user is responsible to make sure that all products are available in the inventory.
 
 
 ## InventoryManagerEnv
