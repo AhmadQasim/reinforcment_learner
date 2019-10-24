@@ -49,12 +49,12 @@ class Inventory():
         self._products.clear()
         return self.get_state()
 
-    def add(self, product):
-        for item in product:
+    def add(self, products):
+        for item in products:
             self._products.append(item)
         
-    def take(self, serve_queue):
-        for item in serve_queue:
+    def take(self, products):
+        for item in products:
             self._products.remove(item)
 
     def get_state(self):
@@ -349,24 +349,24 @@ class Metric():
         info = {}
         if not done:
             return 0, info
-        sales = 0
-        waits = 0
-        wastes = 0
-        products = 0
+        num_sales = 0
+        num_waits = 0
+        num_wastes = 0
+        num_products = 0
         for key in self.product_list:
-            sales += sum(state_history['serve_queue_'+key])
-            waits += state_history['order_queue_'+key][-1]
-            products += sum(state_history['ready_queue_'+key])
-            wastes += state_history['inventory_'+key][-1]
+            num_sales += sum(state_history['serve_queue_'+key])
+            num_waits += state_history['order_queue_'+key][-1]
+            num_products += sum(state_history['ready_queue_'+key])
+            num_wastes += state_history['inventory_'+key][-1]
         
-        sale_wait_ratio = sales/(sales + waits) if sales + waits>0 else 0
-        product_waste_ratio = products/(products+wastes) if products+wastes>0 else 0
+        sale_wait_ratio = num_sales/(num_sales + num_waits) if num_sales + num_waits>0 else 0
+        product_waste_ratio = num_products/(num_products+num_wastes) if num_products+num_wastes>0 else 0
         score = (sale_wait_ratio + product_waste_ratio)/2
 
-        info["sales"] = sales
-        info["waits"] = waits
-        info["products"] = products
-        info["wastes"] = wastes
+        info["sales"] = num_sales
+        info["waits"] = num_waits
+        info["products"] = num_products
+        info["wastes"] = num_wastes
         info["sale_wait_ratio"] = sale_wait_ratio
         info["product_waste_ratio"] = product_waste_ratio
         return score, info

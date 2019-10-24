@@ -2,13 +2,57 @@
 
 Framework for training and testing reinforcement learning agents.
 
+# Installation
+Install the inventory environment and dependencies using the following commands
+
+```
+$ git clone https://gitlab.virtualbaker.com/MachineLearning/reinforcemnet_learner.git
+$ cd reinforcement_learner/
+$ pip install -e .
+```
+
+# Introduction
+
+This repository has the following structure
+```
+- root
+    |- agents
+    |- gym_baking
+    |- result
+    demo.py
+    setup.py
+```
+Customer environments are defined in the "gym_baking" directory. To use it in your experiment, firstly you need to install this package and then call 
+```
+gym.make("gym_baking:YourCustomerEnvironment", **kwargs)
+```
+"agents" directory contains a random agent and a cem-agent to test the functionalities of the environment. You can try the cem-agent with inventory manager environment by
+```
+python agents/cem.py gym_baking:Inventory-v0 --display
+```
+
+"result" directory shows results of experiments on cem-agent in this inventory basic environment
+
+ "demo.py" shows the dynamics of any environment interacting with a random agent
+ ```
+ python demo.py -e gym_baking:Inventory-v0
+ ```
 
 
 # Inventory Manager API
 
-InventoryManagerEnv contains a producer model, a consumer model and the inventory.
+Inventory Manager (**InventoryManagerEnv**) is a gym environment where an agent can interact and learn from the reward. It mainly consists of a producer model (**ProducerModel**), a consumer model (**ConsumerModel**) and the inventory (**Inventory**). The metric and reward (**Metric**) is also included in the env. You will find the API of
+- Metirc
+- ProductItem
+- Order
+- Inventory
+- ProducerModel
+- ConsumerModel
+- InventoryManagerEnv
 
-# Metric and reward 
+in the next sections
+
+# Metric and reward
 
 - maximize sales (finished orders)
 - minimize waste (not sold products end of day)
@@ -22,57 +66,77 @@ Orders can be a function of:
 
 depending on consumer model.
 
-**Metric().\_\_init\_\_(config)**
+**class Metric**
 
-- config(dict) : config from InventoryManagerEnv
+**\_\_init\_\_(config)**
 
-**Metric().get_metric(state_history, done) -> reward**
-- state_history(dict) : state history from InventoryManagerEnv, should at least contains taken queue and inventory_state
+Initialize an instance of Metric from config. Config is a dictionary contains products indices and attributes. It's parsed from the InventoryManagerEnv. You can find the example of config below.
+
+**get_metric(state_history, done) -> reward, metric_info**
+
+- state_history(dict) : state history from InventoryManagerEnv, should contains historical states of consumer, producer and inventory
 - done(bool) : if this episode is done
 
 return
 
-- reward(int): 0 if episode is not done, otherwise reward = sales - wastes
+- reward(int): 0 if episode is not done, otherwise reward = f(sales_ratio, products_ratio)
+
+- info(dict): {} if episode is not done, otherwise the detailed metric stored in a dictionary
     - sales(int) : sum of all finished orders
-    - wastes(int) : sum of all products in the inventory
+    - waste(int) : sum of all products in the inventory
+    - waits(int) : sum of all orders that are not finished
+    - products(int) : sum of all produced products
+    - sales_ratio : sales / (sales + waits)
+    - products_ratio : products / (products + waste)
 
 ## ProductItem
-**ProductItem(item_type, production_time, expire_time)**
+**class ProductItem(item_type, production_time, expire_time)**
 
-return an instance of product item
+ProductItem is the basic element for one product that will be produced, stored and consumed. For example, if the the model decides to product a certain amount of products, then that amount of ProductItem should be instantiated and added to the production queue. 
 
-### Attributes
+Initilization:
+- item_type: type of product
+- production_time: how long it takes to produce
+- expire_time: how long the product stays fresh
+
+It has the following attributes:
+- item_type: type of product
 - age: age of the product item
 - uuid: uuid of each product item
 
-### Methods
+and methods:
 - is_done() -> boolean: return status of whether the product item is ready or not
 - is_fresh() -> boolean: return status of freshment
+- step() -> None: aging of product item
 
 
 ## Order
-**Order(item_type)**
+**class Order(item_type)**
 
-return an instance of order
+Order is the basic element for one order item made by consumer. It records the product type and waiting time for one order item. Similar to ProductItem, if the model makes a request for certain amount of products, then that amount of Order should be instantiated and added to the order queue.
 
-### Attributes
-- waiting_time: waiting time since this order has been made
+Initialization:
+- item_type : type of product
+- waiting_time: waiting time since this order has made
 
-### Methods
+Methods:
+- step()-> None: aging of waiting time
 
 
 ## Producer Model
-ProducerModel receives action from agent and schedules the production. It returns products when the production is ready. The state space of ProducerModel is a production queue of ProductItem.
+ProducerModel receives action from agent and schedules the production.
 
-**ProducerModel(config)**
+**class ProducerModel(config)**
 
 Initialize a ProducerModel from config
 
-- config: products list with prodution time and expire time for each individual product type
+- config(dict): products list with prodution time and expire time for each individual product type
 
 ### Methods
 
 **get_state() -> producer_state**
+
+return current states of the producer model. The state space of ProducerModel is a production queue of ProductItem.
 
 - producer_state : dict
     - "production_queue" : list([ProductItem[type,age]])
@@ -94,7 +158,7 @@ return ready queue (when products are ready: ready queue; not ready: empty list)
 
 Start producing. If the producer is currently not available, i.e. production_queue is not empty, discard production requests from the agent. Otherwise, add corresponding amount of product items into production queue.
 
-- product_type (int): type of product to produce # index of product ?? layout of config file
+- product_type (int): type of product to produce # index of product
 - num_product (int): number of product to produce
 
 Return
@@ -102,13 +166,14 @@ Return
 
 **step() -> None**
 
-1. aging of product items in the production queue
+aging of product items in the production queue
 
 **reset() -> producer_state**
 
 clear production queue and return the producer state
 
 ## Consumer Model
+The consumer model makes orders based on the information of currently available inventory products, the entire products list, timestep, and current state of order queue. The base model has a private function called _serve_order to add new orders into order queue, compare order queue with inventory products, and return a serve queue which contains products that are ready to be taken from the inventory. Users should model new orders by "make_order" method of the consumer model.
 
 **ConsumerModel(config)**
 
@@ -124,7 +189,7 @@ Initialize a ProducerModel from config
 
 **make_orders( inventory_products, order_queue, time ) -> new_orders**
 
-Return new orders: list(tuple(order_type, num_order))
+Return new orders: list(tuple(order_type, num_order)) # ?? should define a standard format
 
 **_server_orders( inventory_products, time ) -> serve_queue**
 Add new orders into order queue. Then split available products and not available products based on the comparation between current order queue and the inventory products

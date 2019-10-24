@@ -1,5 +1,6 @@
 title: "Inventory Manager Environment"
 description: "Config for inventory manager environment"
+
 product_list:
   0:
     type: brot
