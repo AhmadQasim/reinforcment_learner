@@ -243,7 +243,7 @@ InventoryManagerEnv is an environment in gym. It captures inventory dynamics thr
 
 **class InventoryManagerEnv(config_path)**
 
-Initialize a Inventory Manager Environment from a config.yaml file. The config file are parsed into a dictionary. Then the dictory is passed into producer, consumer, inventory and metric
+Initialize a Inventory Manager Environment from a config.yaml file. The config file are parsed into a dictionary. Then the dictionary is passed into producer, consumer, inventory and metric
 
 **action space**
 ```
