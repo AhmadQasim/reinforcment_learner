@@ -5,6 +5,7 @@ from gym_baking.envs.order import Order
 class BaseConsumer():
     def __init__(self, config):
         self.config = config
+        self.products = config['product_list']
         self._order_queue = []
         self.state = {}
         self.state["order_queue"] = []
@@ -33,7 +34,7 @@ class BaseConsumer():
         n, type_ids = self.make_orders(inventory_products, self._order_queue, timestep)
 
         for i in range(n):
-            order = Order(self.config[type_ids[i]]['type'])
+            order = Order(self.products[type_ids[i]]['type'])
             self._order_queue.append(order)
 
         order_counter = Counter([x._item_type for x in self._order_queue])

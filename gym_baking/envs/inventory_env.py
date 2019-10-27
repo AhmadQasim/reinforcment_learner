@@ -7,7 +7,7 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 
-from gym_baking.envs.consumers.random_consumer import RandomConsumer as Consumer
+from gym_baking.envs.consumers.regression_consumer import RegressionConsumer as Consumer
 
 class ProductItem():
     def __init__(self, item_type, production_time, expire_time):
@@ -112,18 +112,18 @@ class InventoryManagerEnv(gym.Env):
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)
         
-        self.config = config['product_list']
+        self.products = config['product_list']
         self.episode_max_steps = config['episode_max_steps']
-        self._validate_config(self.config)
-        self.product_list = [x['type'] for x in self.config.values()]
+        self._validate_config(self.products)
+        self.product_list = [x['type'] for x in self.products.values()]
 
-        num_types = len(self.config)
+        num_types = len(self.products)
         self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,30]), dtype=np.int64)
         self.observed_product = self.product_list
 
-        self._producer_model = ProducerModel(self.config)
+        self._producer_model = ProducerModel(self.products)
         self._inventory = Inventory()
-        self._consumer_model = Consumer(self.config)
+        self._consumer_model = Consumer(config)
 
         self.timestep = 0
         self.state = dict()
@@ -131,7 +131,7 @@ class InventoryManagerEnv(gym.Env):
         self.axes = None
 
         self.state_history = {}
-        self._metric = Metric(self.config)
+        self._metric = Metric(self.products)
     
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
@@ -238,9 +238,9 @@ class InventoryManagerEnv(gym.Env):
         self.state_history.setdefault('in_production', []).append(in_production)
         self.state_history.setdefault('is_busy', []).append(is_busy)
 
-        for key in self.config.keys():
+        for key in self.products.keys():
             num_request = state["action"][1] if state["action"][0]==key else 0
-            self.state_history.setdefault("action_"+self.config[key]['type'], []).append(num_request)
+            self.state_history.setdefault("action_" + self.products[key]['type'], []).append(num_request)
 
         for key in self.product_list:
             self.state_history.setdefault('inventory_'+key, []).append(inventory_count[key])

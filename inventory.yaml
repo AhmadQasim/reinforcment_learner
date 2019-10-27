@@ -13,3 +13,6 @@ product_list:
     expire_time: 20
 
 episode_max_steps: 100
+top_n_items: 2
+data_path: "/home/ahmad/percibake_RL/semester-2019-2/data/restaurant-1-orders.csv"
+opening_time: "17:00"
