@@ -1,4 +1,3 @@
-import copy
 from collections import Counter
 import uuid
 import yaml
@@ -8,8 +7,7 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 
-from reinforcemnet_learner.gym_baking.envs.consumers.random_consumer import RandomConsumer as Consumer
-
+from gym_baking.envs.consumers.random_consumer import RandomConsumer as Consumer
 
 class ProductItem():
     def __init__(self, item_type, production_time, expire_time):
@@ -33,15 +31,6 @@ class ProductItem():
     def step(self):
         self.age += 1
 
-class Order():
-    def __init__(self, item_type):
-        self._item_type = item_type
-        self.is_done = False
-        self.waiting_time = 0
-
-    def step(self):
-        if not self.is_done:
-            self.waiting_time += 1
 
 class Inventory():
     def __init__(self):

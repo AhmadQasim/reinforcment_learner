@@ -1,6 +1,5 @@
-import numpy as np
 from collections import Counter
-from reinforcemnet_learner.gym_baking.envs.inventory_env import Order
+from gym_baking.envs.order import Order
 
 
 class BaseConsumer():
@@ -19,11 +18,13 @@ class BaseConsumer():
         return self.state
 
     def make_orders(self, inventory_products, order_queue, timestep):
+
         num_new_order = -1
         type_ids = -1
         assert False, "make_orders function should be overriden by a subclass"
 
         return num_new_order, type_ids
+
 
     def _serve_orders(self, inventory_products, timestep):
         """

@@ -1,9 +1,10 @@
 import numpy as np
-from reinforcemnet_learner.gym_baking.envs.consumers.base_consumer import BaseConsumer
+from gym_baking.envs.consumers.base_consumer import BaseConsumer
 
 
 class RandomConsumer(BaseConsumer):
     def __init__(self, config):
+        print("Random Consumer")
         super().__init__(config)
 
     def make_orders(self, inventory_products, order_queue, timestep):
