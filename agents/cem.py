@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 from agents._policies import LinearActionLinearPolicy as LinearPolicy
 
 import argparse
-import gym_baking
+# import gym_baking
 from inventory_wrapper import InventoryQueueToVector
 
 def cem(f, th_mean, batch_size, n_iter, elite_frac, initial_std=1.0):
@@ -54,6 +54,7 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
         plt.savefig(str(int(time.time()*1000)) +'.jpg')
         env.close()
     return total_rew, t+1
+
 
 if __name__ == '__main__':
     logger.set_level(logger.INFO)
