@@ -55,6 +55,7 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
         env.close()
     return total_rew, t+1
 
+
 if __name__ == '__main__':
     logger.set_level(logger.INFO)
 
@@ -67,7 +68,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if 'Inventory-v0' in args.target:
-        env = gym.make("gym_baking:Inventory-v0", config_path="inventory.yaml")
+        env = gym.make("gym_baking:Inventory-v0", config_path="../inventory.yaml")
     else:
         env = gym.make(args.target)
     # env.seed(1)
