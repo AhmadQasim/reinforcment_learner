@@ -23,5 +23,8 @@ class ProductItem:
     def is_fresh(self):
         return self.age < self._expire_time
 
+    def get_age(self):
+        return self.age
+
     def step(self):
         self.age += 1
