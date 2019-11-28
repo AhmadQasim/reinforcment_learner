@@ -6,11 +6,13 @@ product_list:
     type: brot
     production_time: 5
     expire_time: 100
+    counts: [25,50,0,50]
   
   1:
     type: pretzel
     production_time: 15
     expire_time: 20
+    counts: [100,0,20,20]
 
 episode_max_steps: 100
 top_n_items: 2
