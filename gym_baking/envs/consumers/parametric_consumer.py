@@ -28,6 +28,17 @@ class CategoricalConsumerModel(BaseConsumer):
 
 class PoissonConsumerModel(BaseConsumer):
     def __init__(self, config):
+        """some examples to construct counts parameter in products:
+        - if we assume a product will be ordered 100 times in second half of the episode
+            counts: [0,100]
+        - if it is ordered 50 times for the first quarter, 20 for the second half
+            counts: [50,0,10,10]
+        - if it is assumed to be ordered 200 for the whole episode
+            counts: [200]
+        as we add new element to the list it will produce more partitions
+        with the values set for the partition as the estimated number of products for that
+        partition
+        """
         super().__init__(config)
         self.maximum_time_steps = config["episode_max_steps"]
         self.counts_list = [product['counts'] for key, product in self.products.items()]
