@@ -6,14 +6,15 @@ product_list:
     type: brot
     production_time: 5
     expire_time: 100
-    counts: [25,50,0,50]
+    counts: [0,50,50,50]
   
   1:
     type: pretzel
     production_time: 15
     expire_time: 20
-    counts: [100,0,20,20]
+    counts: [100,0,0,20]
 
+weight_list: [1000, 1000, 1000]
 episode_max_steps: 100
 top_n_items: 2
 data_path: "/home/ahmad/percibake_RL/semester-2019-2/data/restaurant-1-orders.csv"
