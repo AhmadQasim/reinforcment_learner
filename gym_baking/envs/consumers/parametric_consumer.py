@@ -1,5 +1,8 @@
+# %%
 import numpy as np
 from gym_baking.envs.consumers.base_consumer import BaseConsumer
+from collections import Counter
+import matplotlib.pyplot as plt
 
 
 def sample_from_multinomial(probs):
@@ -71,3 +74,21 @@ class PoissonConsumerModel(BaseConsumer):
         number_of_items = np.sum(poisson_outcomes)
         items = [i for i, item_count in enumerate(poisson_outcomes) for _ in range(item_count)]
         return number_of_items, items
+
+# %%
+'''
+config = {'product_list': {"brot": {'counts': [100, 50, 0, 0]}, "pretzel": {'counts': [25, 25, 25, 0]},
+                           "vater": {'counts': [300]},
+                           "pizza": {'counts': [0, 25, 50, 50]},
+                           "beer": {'counts': [0, 25, 100, 100]}, "döner": {'counts': [0, 0, 25, 50]}},
+          'episode_max_steps': 100}
+consumer = PoissonConsumerModel(config)
+orders = consumer.make_orders("", "", 80)
+print(orders)
+counts = Counter(orders[1])
+print(counts)
+if orders is not None:
+    plt.bar(range(len(counts)), counts.values(), align='center', alpha=0.5)
+    plt.xticks(range(len(counts)), [list(config['product_list'].keys())[element] for element in counts.keys()])
+    plt.show()
+'''

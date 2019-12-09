@@ -7,7 +7,9 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 
-from gym_baking.envs.consumers.regression_consumer import RegressionConsumer as Consumer
+#from gym_baking.envs.consumers.regression_consumer import RegressionConsumer as Consumer
+from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Consumer
+
 
 class ProductItem():
     def __init__(self, item_type, production_time, expire_time):
