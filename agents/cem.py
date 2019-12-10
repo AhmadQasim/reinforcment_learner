@@ -44,6 +44,7 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
     for t in range(num_steps):
         if render:
             env.render()
+        print(ob)
         a = agent.act(ob)
         (ob, reward, done, _info) = env.step(a)
         total_rew += reward
