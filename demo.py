@@ -33,7 +33,8 @@ if not ap.log:
         reward = 0
         done = False
         for timestep in range(ap.num_timesteps):
-            env.render()
+           # env.render()
+            # action = [product_id, quantity]
             action = agent.act(observation, reward, done)
             observation, reward, done, info = env.step(action)
             if done:

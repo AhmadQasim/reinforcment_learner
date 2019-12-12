@@ -4,15 +4,15 @@ description: "Config for inventory manager environment"
 product_list:
   0:
     type: brot
-    production_time: 5
+    production_time: 1
     expire_time: 100
-    counts: [0,50]
+    counts: [100,0]
   
   1:
     type: pretzel
-    production_time: 15
+    production_time: 1
     expire_time: 20
-    counts: [100,0]
+    counts: [1000,0]
 
 weight_list: [1000, 1000, 1000]
 episode_max_steps: 100
