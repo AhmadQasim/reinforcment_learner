@@ -3,6 +3,7 @@ import os
 import gym
 from gym import wrappers
 from agents.random_agent import RandomAgent
+from agents.dp_agent import DynamicProgramming
 
 
 '''
@@ -24,7 +25,7 @@ if 'Inventory-v0' in ap.env_id:
     env = gym.make('gym_baking:Inventory-v0', config_path = 'inventory.yaml')
 else:
     env = gym.make(ap.env_id)
-agent = RandomAgent(env.action_space)
+agent = DynamicProgramming()
 env.seed(0)
 
 if not ap.log:
