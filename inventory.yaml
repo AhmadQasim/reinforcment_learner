@@ -4,18 +4,12 @@ description: "Config for inventory manager environment"
 product_list:
   0:
     type: brot
-    production_time: 5
+    production_time: 0
     expire_time: 100
-    counts: [0,50,50,50]
-  
-  1:
-    type: pretzel
-    production_time: 15
-    expire_time: 20
-    counts: [100,0,0,20]
+    counts: [0,100]
 
 weight_list: [1000, 1000, 1000]
 episode_max_steps: 100
-top_n_items: 2
+top_n_items: 1
 data_path: "/home/ahmad/percibake_RL/semester-2019-2/data/restaurant-1-orders.csv"
 opening_time: "17:00"

@@ -8,7 +8,7 @@ from gym.utils import seeding
 
 from gym_baking.envs.inventory import Inventory
 from gym_baking.envs.product_item import ProductItem
-from gym_baking.envs.consumers.random_consumer import RandomConsumer as Consumer
+from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Consumer
 
 
 class ProducerModel:
@@ -133,8 +133,8 @@ class InventoryManagerEnv(gym.Env):
         self.timestep += 1
         
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
-        
-        done = self.timestep>self.episode_max_steps
+
+        done = self.timestep >= self.episode_max_steps
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
