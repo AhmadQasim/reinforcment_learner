@@ -133,8 +133,8 @@ class InventoryManagerEnv(gym.Env):
         self.timestep += 1
         
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
-        
-        done = self.timestep>self.episode_max_steps
+
+        done = self.timestep >= self.episode_max_steps
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
