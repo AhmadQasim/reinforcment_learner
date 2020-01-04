@@ -8,7 +8,7 @@ from gym.utils import seeding
 
 from gym_baking.envs.inventory import Inventory
 from gym_baking.envs.product_item import ProductItem
-from gym_baking.envs.consumers.random_consumer import RandomConsumer as Consumer
+from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Consumer
 
 
 class ProducerModel:

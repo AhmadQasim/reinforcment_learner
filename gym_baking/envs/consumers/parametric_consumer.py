@@ -48,7 +48,13 @@ class PoissonConsumerModel(BaseConsumer):
         """
         super().__init__(config)
         self.maximum_time_steps = config["episode_max_steps"]
-        self.counts_list = [product['counts'] for key, product in self.products.items()]
+        if self.domain_randomization:
+            self.counts_list = []
+            self.ranges = [product['ranges'] for key, product in self.products.items()]
+            for product_ranges in self.ranges:
+                self.counts_list.append([np.random.randint(range[0], range[1]) for range in product_ranges])
+        else:
+            self.counts_list = [product['counts'] for key, product in self.products.items()]
         self.numbers_of_dilation = [float(len(counts)) for counts in self.counts_list]
         self.lambdas_list = self._get_lambdas_list(self.counts_list)
 
