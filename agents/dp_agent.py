@@ -6,69 +6,64 @@ from collections import Counter
 class DynamicProgramming():
     def __init__(self):
         self.env = gym.make("gym_baking:Inventory-v0", config_path="inventory.yaml")
-        #self.value_function = np.zeros(self.env.episode_max_steps)
-        # self.production_time = self.env._producer_model.config[0]['production_time']
+
+        self.production_time = self.env._producer_model.config[0]['production_time']
+
         self.number_actions = self.env.action_space.high[1] + 1
         self.number_products = len(self.env.product_list)
-        self.consumer_demand = np.zeros([self.env.episode_max_steps, self.number_products])
+        #self.consumer_demand = np.zeros([self.env.episode_max_steps, self.number_products])
         # init random or load from somewhere
-        self.consumer_demand[0:50] = random_init_demand = np.random.randint(31, size=(50,1))
+        #self.consumer_demand[0:50] = np.random.randint(31, size=(50,1))
+
+        #consumer demand oracle
+        self.consumer_demand = np.load('../reinforcemnet_learner/consumer_demand.npy')
+
         self.value_function = np.zeros(self.env.episode_max_steps)
-        #Todo: maybe track policies over time to show changing prediction.
+
+        # Add the amount to be produced at time_step for which product, rest of row is zero
         self.policy = np.zeros([self.env.episode_max_steps, self.number_products])
         self.theta = 0.0001
         self.discount_factor = 0.9
 
+    def one_step_lookahead(self, state, product_counter, order_counter):
+        expected_action_value_vector = np.zeros(self.number_actions)
+
+        for a in range(self.number_actions):
+            # How for more than one product? Currently not taking different cost for products into account nor cost
+            # for producing: c(delivered).
+            # reward = inventory = sum over all products: r(inv + delivered - demand) // r = abs
+            # Idea consumer_demand[state + delivery time?]
+            if state < self.env.episode_max_steps-1:
+                expected_action_value_vector[a] = (abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state+1]) - sum(order_counter.values())) + self.discount_factor * self.value_function[state+1])
+            else:
+                expected_action_value_vector[a] = abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state]) - sum(order_counter.values()))
+        return expected_action_value_vector
+
     def act(self, observation, reward, done):
+        # make an observation of inventory x and orders o
         inventory_product_list = observation['inventory_state']['products']
         product_counter = Counter(getattr(product, '_item_type') for product in inventory_product_list)
 
         order_queue_list = observation['consumer_state']['order_queue']
         order_counter = Counter(getattr(order, '_item_type') for order in order_queue_list)
 
-        delta = 0.0
-        i = 0
         while True:
-            i += 1
+            delta = 0.0
             # ToDo: current step and forward only
-            for step in range(self.env.episode_max_steps):
-                if step < self.env.timestep:
+            for state in range(self.env.episode_max_steps):
+                if state < self.env.timestep:
                     continue
-                A = self.one_step_lookahead(step, product_counter, order_counter)
-                best_action_value = np.min(A)
+                expected_action_values = self.one_step_lookahead(state, product_counter, order_counter)
+                best_action_value = np.min(expected_action_values)
 
-                delta = max(delta, np.abs(best_action_value - self.value_function[step]))
+                delta = max(delta, np.abs(best_action_value - self.value_function[state]))
 
-                self.value_function[step] = best_action_value
+                self.value_function[state] = best_action_value
 
-            if delta < self.theta or i == 20:
+            if delta < self.theta:
                 #print(self. value_function)
-                A = self.one_step_lookahead(self.env.timestep, product_counter, order_counter)
-                best_action = np.argmin(A)
+                expected_action_values = self.one_step_lookahead(self.env.timestep, product_counter, order_counter)
+                best_action = np.argmin(expected_action_values)
                 #print('Best action ' + str(best_action) + ' after ' + str(i) + ' value iterations.')
                 #Todo: hack for fixed product ID
                 return [0, best_action]
-
-        # Create a deterministic policy using the optimal value function
-        #for step in range(self.env.episode_max_steps):
-        #    # One step lookahead to find the best action for this state
-        #    A = self.one_step_lookahead(step, product_counter)
-        #    best_action = np.argmin(A)
-        #    # Always take the best action
-        #    self.policy[step, best_action] = 1.0
-
-
-
-    def one_step_lookahead(self, state, product_counter, order_counter):
-        A = np.zeros(self.number_actions)
-        for item in range(self.number_products):
-            for a in range(self.number_actions):
-                # How for more than one product? Currently not taking different cost for products into account nor cost
-                # for producing: c(delivered).
-                # reward = inventory = sum over all products: r(inv + delivered - demand) // r = abs
-                # Idea consumer_demand[state + delivery time?]
-                if state < self.env.episode_max_steps-1:
-                    A[a] = (abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state+1]) - sum(order_counter.values())) + self.discount_factor * self.value_function[state+1])
-                else:
-                    A[a] = abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state]) - sum(order_counter.values()))
-            return A
