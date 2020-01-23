@@ -8,8 +8,8 @@ import logging
 from itertools import chain
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 2
-MAXIMUM_DELIVERY = 2
+MAXIMUM_INVENTORY = 3
+MAXIMUM_DELIVERY = 3
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
 
@@ -54,10 +54,11 @@ class DPAgent():
         state_space_size = (MAXIMUM_INVENTORY**self.number_of_products+1) * \
                            (self.number_of_products*MAXIMUM_DELIVERY+1)**self.maximum_produce_time
 
-        logging.log(f'state space has approximately {state_space_size} different states')
+        self.is_trained = False
+        logging.info(f'state space has approximately {state_space_size} different states')
         if (SHOULD_CHECK_FOR_ADP_THRESHOLD and state_space_size > ADP_THRESHOLD):
             #adp part hasn't been checked yet
-            logging.log('doing approximate dp analysis')
+            logging.info('doing approximate dp analysis')
             self.adp = True
             inputs = tf.keras.Input(shape=((self.maximum_produce_time + 1) * self.number_of_products,), name='state')
             x = tf.keras.layers.Dense(64, activation='relu', name='dense_1')(inputs)
@@ -66,7 +67,7 @@ class DPAgent():
             outputs = tf.keras.layers.Dense(1, activation='softmax', name='costs')(x)
             self.cost_approximator_model = tf.keras.Model(inputs=inputs, outputs=outputs)
         else:
-            logging.log('doing exact dp analysis')
+            logging.info('doing exact dp analysis')
             self.adp = False
             self.lookup_table = {}
             self.states = None
@@ -89,15 +90,16 @@ class DPAgent():
             self.train_exact_dp(orders, step)
 
     def train_exact_dp(self, orders, step):
-        if self.states is None:
-            self.states = self.get_state_variants()
-        #TODO: check the value types
-        return
+        for _ in reversed(range(self.horizon)):
+            for (last_step_delivered, (inventory, delivery_matrix)) in self.get_state_variants():
+                cost, optimal_action = self.get_optimal_cost_action_pair((inventory,delivery_matrix),self.oracle.make_orders(step)[1],
+                                                                         last_step_delivered)
+                self.lookup_table[np.append(inventory,delivery_matrix).tobytes()] = cost
 
     def get_state_variants(self):
         for inventory in self.get_inventory_variants():
-            for last_step_delivered, delivery_matrix in self.recursively_create_all_delivery_matrixes():
-                yield (last_step_delivered, np.append(inventory, delivery_matrix.flatten()))
+            for (last_step_delivered, delivery_matrix) in iter(self.create_all_possible_delivery_matrixes()):
+                yield (last_step_delivered, (inventory, delivery_matrix.flatten()))
 
     def get_inventory_variants(self) -> np.array:
         for number_of_products in range(self.number_of_products*MAXIMUM_INVENTORY+1):
@@ -105,54 +107,63 @@ class DPAgent():
             remainder = number_of_products % MAXIMUM_INVENTORY
             quotient = int(number_of_products / MAXIMUM_INVENTORY)
             rest = self.number_of_products - quotient - 1
-            chunks = [MAXIMUM_INVENTORY for _ in range(quotient)] + [remainder] + [0 for _ in range(rest)]
+            remainder = [remainder] if rest >= 0 else []
+            chunks = [MAXIMUM_INVENTORY for _ in range(quotient)] + remainder + [0 for _ in range(rest)]
             for indx, chunk in enumerate(chunks):
                 inventory_vector[indx] = chunk
             yield inventory_vector
 
-    def recursively_create_all_delivery_matrixes(self):
+    def create_all_possible_delivery_matrixes(self):
         matrix_list = []
-        def create_delivery_vector(vectors_before):
-            for vector in self.get_delivery_variants():
-                new_chain = vectors_before + [vector]
-                if len(vectors_before) < self.maximum_produce_time-1:
-                    create_delivery_vector(new_chain)
+        def inject_delivery_vectors_recursively(matrix: np.ndarray, ind=0):
+            for (prod_index, vector) in self.get_delivery_variants():
+                matrix_copy = matrix.copy()
+                matrix_copy[:, ind] = vector
+                if ind < self.maximum_produce_time-1:
+                    index = ind + 1
+                    inject_delivery_vectors_recursively(matrix_copy, index)
                 else:
-                    matrix_list.append(new_chain)
+                    matrix_list.append(matrix_copy)
 
-        create_delivery_vector([])
-        refined_matrix_list = self.eliminate_faulty_matrices(matrix_list)
-
-        return refined_matrix_list
+        inject_delivery_vectors_recursively(np.zeros((self.number_of_products, self.maximum_produce_time)))
+        return self.eliminate_faulty_matrices(matrix_list)
 
     def eliminate_faulty_matrices(self, matrix_list):
         refined_list = []
         for matrix in matrix_list:
-            if self.is_matrix_okay(matrix):
-                refined_list.append(matrix)
-
+            last_step_delivered, matrix_is_okay =  self.check_matrix(matrix)
+            if matrix_is_okay:
+                refined_list.append((last_step_delivered,matrix))
         return refined_list
 
-    def is_matrix_okay(self, matrix: np.ndarray):
-        reversed_transposed_matrix = matrix[:,::-1].T
-        for ind, column_in_original_matrix in enumerate(reversed_transposed_matrix):
-            range_to_look_out = self.produce_times[np.argwhere(column_in_original_matrix > 0).item()]
-            if(np.any(reversed_transposed_matrix[ind:ind+self.maximum_produce_time-range_to_look_out, :] > 0)):
-                return False
+    def check_matrix(self, matrix):
+        #we check the deliverys in a reversed order, it makes it easier
+        #if there is an delivery, there shouldn't be any delivery during the time it took to produce that delivery
+        last_step_delivered_for_the_matrix = None
+        reversed_transposed_matrix = matrix[:,::-1]
+        for ind, column_in_original_matrix in enumerate(reversed_transposed_matrix.T):
+            if not np.any(column_in_original_matrix > 0):
+                continue
+            elif last_step_delivered_for_the_matrix is None:
+                last_step_delivered_for_the_matrix = self.maximum_produce_time - ind - 1
 
-        return True
+            range_to_look_out = self.produce_times[np.argwhere(column_in_original_matrix > 0).item()] - 1
+            if range_to_look_out == 0:
+                continue
+            look_up_limit = ind+1 + max(self.maximum_produce_time-1-ind, range_to_look_out-1)
+            look_window = reversed_transposed_matrix[:,ind+1:look_up_limit]
+            if(np.any(look_window > 0)):
+                return (last_step_delivered_for_the_matrix, False)
 
-    def get_optimal_cost_action_pair(self, state, orders, inventory_state, last_delivery_time_step, step):
-        #TODO: inventory + last_deliveries are tuple, check all parts if they are always tuple (maybe in somepart concetanated np array)
+        return (last_step_delivered_for_the_matrix, True)
+
+    def get_optimal_cost_action_pair(self, state, orders, last_delivery_time_step):
         inventory, last_deliveries = state
         min_cost = sys.maxsize
         optimal_action = np.zeros(self.number_of_products)
         for prod_index, action_vector in self.get_delivery_variants():
-            next_step_apprx_cost = 0
-
             if(prod_index == -1):
                 action_vector = np.zeros(self.number_of_products)
-
             elif self.maximum_produce_time - last_delivery_time_step < self.produce_times[prod_index]:
                 # do not produce anything if we are not able to do in time...
                 action_vector = np.zeros(self.number_of_products)
@@ -160,13 +171,9 @@ class DPAgent():
             new_inventory = np.maximum(np.zeros_like(inventory), (inventory + action_vector - orders))
             new_state = np.append(new_inventory, np.append(last_deliveries[1:, :], action_vector))
 
-            if step < self.horizon - 1:
-                next_step_apprx_cost = self.cost_of_state(new_state)
-            else:
-                # we do not have a next step cost if we are at the end
-                next_step_apprx_cost = 0
+            next_step_cost = self.cost_of_state(new_state)
 
-            cost = self.cost_func(inventory, action_vector, orders) + next_step_apprx_cost
+            cost = self.cost_func(inventory, action_vector, orders) + next_step_cost
             min_cost = cost if cost < min_cost else min_cost
             optimal_action = action_vector if cost < min_cost else optimal_action
 
@@ -174,7 +181,7 @@ class DPAgent():
 
     # generate all possible actions
     def get_delivery_variants(self):
-        yield (-1, 0)
+        yield (-1, np.zeros(self.number_of_products))
         for prod_index in range(self.number_of_products):
             for count in range(MAXIMUM_DELIVERY):
                 action_vector = np.zeros(self.number_of_products)
@@ -201,7 +208,7 @@ class DPAgent():
             random_inventory_state = np.random.randint(MAXIMUM_INVENTORY, size=self.number_of_products)
             random_delivery_matrix, last_delivery_time_step = self.create_random_delivery_matrix()
             state = (random_inventory_state, random_delivery_matrix)
-            optimal_cost, _ = self.get_optimal_cost_action_pair(state, orders,random_inventory_state, last_delivery_time_step, step)
+            optimal_cost, _ = self.get_optimal_cost_action_pair(state, orders, last_delivery_time_step, step)
             state_feature_matrix[i, :] = np.append(random_inventory_state, random_delivery_matrix.flatten())
             cost_values[i] = optimal_cost
 
@@ -282,5 +289,5 @@ for ind, a in enumerate(arr111.T):
     print(ind)
     print(a)
 
-acd = np.any(arr111>4)
+acd = np.any(arr111>45)
 print(acd)
