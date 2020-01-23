@@ -87,23 +87,33 @@ class DPAgent():
     def train_dp(self):
         for step in reversed(range(self.horizon)):
             orders = self.vectorize_counter(Counter(self.oracle.make_orders(step)[1]))
-            self.train_exact_dp(orders, step)
+            self.train_exact_dp(orders)
 
-    def train_exact_dp(self, orders, step):
-        for _ in reversed(range(self.horizon)):
-            for (last_step_delivered, (inventory, delivery_matrix)) in self.get_state_variants():
-                cost, optimal_action = self.get_optimal_cost_action_pair((inventory,delivery_matrix),self.oracle.make_orders(step)[1],
-                                                                         last_step_delivered)
-                self.lookup_table[np.append(inventory,delivery_matrix).tobytes()] = cost
+    def train_exact_dp(self, orders):
+        for (last_step_delivered, (inventory, delivery_matrix)) in self.get_state_variants():
+            cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory,delivery_matrix), orders,
+                                                                     last_step_delivered)
+            self.lookup_table[np.append(inventory, delivery_matrix).tobytes()] = cost
+
+    def print(self):
+        for step in range(self.horizon):
+            min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int32"), (self.number_of_products, self.maximum_produce_time+1))
+            print(min_state)
+            inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
+            last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
+            cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
+                                                                                      self.oracle.make_orders(step)[1],
+                                                                                      last_step_delivered)
+            print(optimal_action)
 
     def get_state_variants(self):
         for inventory in self.get_inventory_variants():
             for (last_step_delivered, delivery_matrix) in iter(self.create_all_possible_delivery_matrixes()):
-                yield (last_step_delivered, (inventory, delivery_matrix.flatten()))
+                yield (last_step_delivered, (inventory, delivery_matrix))
 
     def get_inventory_variants(self) -> np.array:
         for number_of_products in range(self.number_of_products*MAXIMUM_INVENTORY+1):
-            inventory_vector = np.zeros(self.number_of_products)
+            inventory_vector = np.zeros(self.number_of_products, dtype="int32")
             remainder = number_of_products % MAXIMUM_INVENTORY
             quotient = int(number_of_products / MAXIMUM_INVENTORY)
             rest = self.number_of_products - quotient - 1
@@ -125,7 +135,7 @@ class DPAgent():
                 else:
                     matrix_list.append(matrix_copy)
 
-        inject_delivery_vectors_recursively(np.zeros((self.number_of_products, self.maximum_produce_time)))
+        inject_delivery_vectors_recursively(np.zeros((self.number_of_products, self.maximum_produce_time), dtype="int32"))
         return self.eliminate_faulty_matrices(matrix_list)
 
     def eliminate_faulty_matrices(self, matrix_list):
@@ -155,21 +165,22 @@ class DPAgent():
             if(np.any(look_window > 0)):
                 return (last_step_delivered_for_the_matrix, False)
 
+        last_step_delivered_for_the_matrix = 0 if last_step_delivered_for_the_matrix is None else last_step_delivered_for_the_matrix
         return (last_step_delivered_for_the_matrix, True)
 
-    def get_optimal_cost_action_pair(self, state, orders, last_delivery_time_step):
+    def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step):
         inventory, last_deliveries = state
         min_cost = sys.maxsize
-        optimal_action = np.zeros(self.number_of_products)
+        optimal_action = np.zeros(self.number_of_products, dtype="int32")
         for prod_index, action_vector in self.get_delivery_variants():
             if(prod_index == -1):
-                action_vector = np.zeros(self.number_of_products)
+                action_vector = np.zeros(self.number_of_products, dtype="int32")
             elif self.maximum_produce_time - last_delivery_time_step < self.produce_times[prod_index]:
                 # do not produce anything if we are not able to do in time...
-                action_vector = np.zeros(self.number_of_products)
+                action_vector = np.zeros(self.number_of_products, dtype="int32")
 
-            new_inventory = np.maximum(np.zeros_like(inventory), (inventory + action_vector - orders))
-            new_state = np.append(new_inventory, np.append(last_deliveries[1:, :], action_vector))
+            new_inventory = np.maximum(np.zeros_like(inventory, dtype="int32"), (inventory + action_vector - orders))
+            new_state = np.append(new_inventory[:, np.newaxis], np.append(last_deliveries[:, 1:], action_vector[:, np.newaxis], axis=1), axis=1)
 
             next_step_cost = self.cost_of_state(new_state)
 
@@ -177,14 +188,23 @@ class DPAgent():
             min_cost = cost if cost < min_cost else min_cost
             optimal_action = action_vector if cost < min_cost else optimal_action
 
-        return min_cost, optimal_action
+        return min_cost, optimal_action, new_state
+
+    def get_last_delivery_step_of_delivery_matrix(self, delivery_matrix):
+        last_step_delivered_for_the_matrix = 0
+        for ind, column_in_original_matrix in enumerate(delivery_matrix.T):
+            if not np.any(column_in_original_matrix > 0):
+                continue
+            last_step_delivered_for_the_matrix = ind if ind > last_step_delivered_for_the_matrix else last_step_delivered_for_the_matrix
+
+        return last_step_delivered_for_the_matrix
 
     # generate all possible actions
     def get_delivery_variants(self):
-        yield (-1, np.zeros(self.number_of_products))
+        yield (-1, np.zeros(self.number_of_products, dtype="int32"))
         for prod_index in range(self.number_of_products):
             for count in range(MAXIMUM_DELIVERY):
-                action_vector = np.zeros(self.number_of_products)
+                action_vector = np.zeros(self.number_of_products, dtype="int32")
                 action_vector[prod_index] = count + 1 # TODO:should I decrease this and include 0 ? or is it checked in get_optimal_cost_action_pair?
                 yield (prod_index, action_vector) # TODO: prod index == 0 even if it is not produced ?
 
@@ -202,13 +222,13 @@ class DPAgent():
         self.func_approximator_model.fit(train_dataset, epochs=EPOCHS)
 
     def create_state_and_optimal_cost_pairs(self, orders, step, sample_size):
-        state_feature_matrix = np.zeros((sample_size, (self.maximum_produce_time + 1) * self.number_of_products))
+        state_feature_matrix = np.zeros((sample_size, (self.maximum_produce_time + 1) * self.number_of_products), dtype="int32")
         cost_values = np.zeros(sample_size)
         for i in range(sample_size):
             random_inventory_state = np.random.randint(MAXIMUM_INVENTORY, size=self.number_of_products)
             random_delivery_matrix, last_delivery_time_step = self.create_random_delivery_matrix()
             state = (random_inventory_state, random_delivery_matrix)
-            optimal_cost, _ = self.get_optimal_cost_action_pair(state, orders, last_delivery_time_step, step)
+            optimal_cost, _, _ = self.get_optimal_cost_action_pair_and_new_state(state, orders, last_delivery_time_step, step)
             state_feature_matrix[i, :] = np.append(random_inventory_state, random_delivery_matrix.flatten())
             cost_values[i] = optimal_cost
 
@@ -272,22 +292,15 @@ class DPAgent():
 if __name__ == '__main__':
     agent = DPAgent(config_path="../inventory.yaml")
     agent.train()
-
-#%%
-import numpy as np
+    agent.print()
 
 
-arr = np.array([1, 0 , 0 , 0])
+# %%
 
-ind = np.argwhere(arr>0).item()
+arr = np.array([[1, 2, 3],[4, 5, 6]], dtype="int32")
 
-print(ind)
+buff = arr.tobytes()
 
-arr111 = np.array([[1, 2] , [3 , 4]])
+frombuff = np.reshape(np.frombuffer(buff, dtype="int32"), (2,3))
 
-for ind, a in enumerate(arr111.T):
-    print(ind)
-    print(a)
-
-acd = np.any(arr111>45)
-print(acd)
+print(frombuff)
