@@ -25,7 +25,7 @@ if 'Inventory-v0' in ap.env_id:
     env = gym.make('gym_baking:Inventory-v0', config_path = 'inventory.yaml')
 else:
     env = gym.make(ap.env_id)
-agent = DynamicProgramming()
+agent = DynamicProgramming(env)
 env.seed(0)
 
 if not ap.log:
@@ -34,7 +34,7 @@ if not ap.log:
         reward = 0
         done = False
         for timestep in range(ap.num_timesteps):
-           # env.render()
+            env.render()
             # action = [product_id, quantity]
             action = agent.act(observation, reward, done)
             observation, reward, done, info = env.step(action)

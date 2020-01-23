@@ -4,8 +4,8 @@ from collections import Counter
 #import gym_baking.envs.utils as utils
 
 class DynamicProgramming():
-    def __init__(self):
-        self.env = gym.make("gym_baking:Inventory-v0", config_path="inventory.yaml")
+    def __init__(self, env):
+        self.env = env
 
         self.production_time = self.env._producer_model.config[0]['production_time']
 
@@ -23,9 +23,9 @@ class DynamicProgramming():
         # Add the amount to be produced at time_step for which product, rest of row is zero
         self.policy = np.zeros([self.env.episode_max_steps, self.number_products])
         self.theta = 0.0001
-        self.discount_factor = 0.9
+        self.discount_factor = 0.99
 
-    def one_step_lookahead(self, state, product_counter, order_counter):
+    def one_step_lookahead(self, state, inventory, order_counter):
         expected_action_value_vector = np.zeros(self.number_actions)
 
         for a in range(self.number_actions):
@@ -33,16 +33,18 @@ class DynamicProgramming():
             # for producing: c(delivered).
             # reward = inventory = sum over all products: r(inv + delivered - demand) // r = abs
             # Idea consumer_demand[state + delivery time?]
+
             if state < self.env.episode_max_steps-1:
-                expected_action_value_vector[a] = (abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state+1]) - sum(order_counter.values())) + self.discount_factor * self.value_function[state+1])
+                expected_action_value_vector[a] = abs(inventory + a - sum(self.consumer_demand[state+1])) + self.discount_factor * self.value_function[state+1]
             else:
-                expected_action_value_vector[a] = abs(sum(product_counter.values()) + a - sum(self.consumer_demand[state]) - sum(order_counter.values()))
+                expected_action_value_vector[a] = abs(inventory + a - sum(self.consumer_demand[state]))
         return expected_action_value_vector
 
     def act(self, observation, reward, done):
         # make an observation of inventory x and orders o
         inventory_product_list = observation['inventory_state']['products']
         product_counter = Counter(getattr(product, '_item_type') for product in inventory_product_list)
+        i = sum(product_counter.values())
 
         order_queue_list = observation['consumer_state']['order_queue']
         order_counter = Counter(getattr(order, '_item_type') for order in order_queue_list)
@@ -53,8 +55,11 @@ class DynamicProgramming():
             for state in range(self.env.episode_max_steps):
                 if state < self.env.timestep:
                     continue
-                expected_action_values = self.one_step_lookahead(state, product_counter, order_counter)
-                best_action_value = np.min(expected_action_values)
+                expected_action_values = self.one_step_lookahead(state, i, order_counter)
+                best_action_value = min(expected_action_values,key=abs)
+                best_action = np.argmin(expected_action_values)
+
+                i = i + best_action - sum(self.consumer_demand[state])
 
                 delta = max(delta, np.abs(best_action_value - self.value_function[state]))
 
@@ -62,7 +67,7 @@ class DynamicProgramming():
 
             if delta < self.theta:
                 #print(self. value_function)
-                expected_action_values = self.one_step_lookahead(self.env.timestep, product_counter, order_counter)
+                expected_action_values = self.one_step_lookahead(self.env.timestep, sum(product_counter.values()), order_counter)
                 best_action = np.argmin(expected_action_values)
                 #print('Best action ' + str(best_action) + ' after ' + str(i) + ' value iterations.')
                 #Todo: hack for fixed product ID

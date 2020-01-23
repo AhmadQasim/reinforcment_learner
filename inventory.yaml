@@ -4,7 +4,7 @@ description: "Config for inventory manager environment"
 product_list:
   0:
     type: brot
-    production_time: 1
+    production_time: 0
     expire_time: 100
     counts: [750,0]
 
