@@ -5,10 +5,10 @@ import tensorflow as tf
 import yaml
 from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Oracle
 import logging
-from itertools import chain
+from itertools import chain, product
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 3
+MAXIMUM_INVENTORY = 5
 MAXIMUM_DELIVERY = 3
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
@@ -70,7 +70,23 @@ class DPAgent():
             logging.info('doing exact dp analysis')
             self.adp = False
             self.lookup_table = {}
-            self.states = None
+            self.states = []
+            self.orders = []
+            self._injected_orders = []
+
+    def make_orders(self, step, train=True):
+        if len(self._injected_orders) == 0:
+            if train:
+                return self.oracle.make_orders(step)
+            else:
+                return self.orders[step]
+        else:
+            return self._injected_orders[step]
+
+    def inject_prophecy(self, orders):
+        orders_non_vectorized = [(sum(order), [index for index, item in enumerate(order) for _ in range(item)]) for order in orders]
+        self._injected_orders = orders_non_vectorized
+        self.horizon = len(orders)
 
     def train(self):
         if (self.adp):
@@ -85,43 +101,66 @@ class DPAgent():
             return self.lookup_table.get(state.tobytes(), 0.)
 
     def train_dp(self):
+        if len(self.states) == 0:
+            self.create_state_variants() #stores states in self.states
         for step in reversed(range(self.horizon)):
-            orders = self.vectorize_counter(Counter(self.oracle.make_orders(step)[1]))
+            orders = self.vectorize_order(self.make_orders(step))
+            self.orders.append(orders)
             self.train_exact_dp(orders)
+        self.orders = list(reversed(self.orders))
 
     def train_exact_dp(self, orders):
-        for (last_step_delivered, (inventory, delivery_matrix)) in self.get_state_variants():
+        for (last_step_delivered, (inventory, delivery_matrix)) in self.states:
             cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory,delivery_matrix), orders,
                                                                      last_step_delivered)
-            self.lookup_table[np.append(inventory, delivery_matrix).tobytes()] = cost
+
+            key = np.append(inventory[:, np.newaxis], delivery_matrix, axis=1)
+            self.lookup_table[key.tobytes()] = cost
 
     def print(self):
+        min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
+                               (self.number_of_products, self.maximum_produce_time + 1))
+
         for step in range(self.horizon):
-            min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int32"), (self.number_of_products, self.maximum_produce_time+1))
-            print(min_state)
+            inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
+            print(f'step {step}')
+            print(f'inventory \n {inventory}')
+            #print(f'min_state delivery_matrix \n {delivery_matrix}')
+
+            order = self.vectorize_order(self.make_orders(step, train=False))
+            print(f'order \n {order}')
+
+            last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
+            cost, optimal_action, min_state = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
+                                                                                      order,
+                                                                                      last_step_delivered)
+
+            print(f'optimal action \n {optimal_action}')
+
+
+
+    def act(self, step):
+        for step in range(self.horizon):
+            min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"), (self.number_of_products, self.maximum_produce_time+1))
             inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
             last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
-            cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
-                                                                                      self.oracle.make_orders(step)[1],
+            orders = self.vectorize_counter(Counter(self.oracle.make_orders(step)[1]))
+            cost, optimal_action, next_state = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
+                                                                                      orders,
                                                                                       last_step_delivered)
             print(optimal_action)
 
-    def get_state_variants(self):
+    def create_state_variants(self):
         for inventory in self.get_inventory_variants():
             for (last_step_delivered, delivery_matrix) in iter(self.create_all_possible_delivery_matrixes()):
-                yield (last_step_delivered, (inventory, delivery_matrix))
+                self.states.append((last_step_delivered, (inventory, delivery_matrix)))
 
     def get_inventory_variants(self) -> np.array:
-        for number_of_products in range(self.number_of_products*MAXIMUM_INVENTORY+1):
-            inventory_vector = np.zeros(self.number_of_products, dtype="int32")
-            remainder = number_of_products % MAXIMUM_INVENTORY
-            quotient = int(number_of_products / MAXIMUM_INVENTORY)
-            rest = self.number_of_products - quotient - 1
-            remainder = [remainder] if rest >= 0 else []
-            chunks = [MAXIMUM_INVENTORY for _ in range(quotient)] + remainder + [0 for _ in range(rest)]
-            for indx, chunk in enumerate(chunks):
-                inventory_vector[indx] = chunk
-            yield inventory_vector
+        from itertools import combinations_with_replacement
+        range_of_inv = list(range(MAXIMUM_INVENTORY+1))
+        combinations = list(combinations_with_replacement(range_of_inv, 2))
+        for combination in combinations:
+            yield np.array(combination)
 
     def create_all_possible_delivery_matrixes(self):
         matrix_list = []
@@ -135,7 +174,7 @@ class DPAgent():
                 else:
                     matrix_list.append(matrix_copy)
 
-        inject_delivery_vectors_recursively(np.zeros((self.number_of_products, self.maximum_produce_time), dtype="int32"))
+        inject_delivery_vectors_recursively(np.zeros((self.number_of_products, self.maximum_produce_time), dtype="int64"))
         return self.eliminate_faulty_matrices(matrix_list)
 
     def eliminate_faulty_matrices(self, matrix_list):
@@ -171,22 +210,28 @@ class DPAgent():
     def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step):
         inventory, last_deliveries = state
         min_cost = sys.maxsize
-        optimal_action = np.zeros(self.number_of_products, dtype="int32")
+        optimal_action = np.zeros(self.number_of_products, dtype="int64")
+        new_state = np.zeros(self.number_of_products*(self.maximum_produce_time+1))
         for prod_index, action_vector in self.get_delivery_variants():
+            act = action_vector
             if(prod_index == -1):
-                action_vector = np.zeros(self.number_of_products, dtype="int32")
+                act = np.zeros(self.number_of_products, dtype="int64")
             elif self.maximum_produce_time - last_delivery_time_step < self.produce_times[prod_index]:
                 # do not produce anything if we are not able to do in time...
-                action_vector = np.zeros(self.number_of_products, dtype="int32")
+                act = np.zeros(self.number_of_products, dtype="int64")
 
-            new_inventory = np.maximum(np.zeros_like(inventory, dtype="int32"), (inventory + action_vector - orders))
-            new_state = np.append(new_inventory[:, np.newaxis], np.append(last_deliveries[:, 1:], action_vector[:, np.newaxis], axis=1), axis=1)
+            new_inventory_temp = np.maximum(np.zeros_like(inventory, dtype="int64"), (inventory + act - orders))
+            new_inventory_temp = np.minimum(np.ones_like(inventory, dtype="int64")*MAXIMUM_INVENTORY, new_inventory_temp)
+            new_state_temp = np.append(new_inventory_temp[:, np.newaxis], np.append(last_deliveries[:, 1:], act[:, np.newaxis], axis=1), axis=1)
 
-            next_step_cost = self.cost_of_state(new_state)
+            next_step_cost = self.cost_of_state(new_state_temp)
 
-            cost = self.cost_func(inventory, action_vector, orders) + next_step_cost
-            min_cost = cost if cost < min_cost else min_cost
-            optimal_action = action_vector if cost < min_cost else optimal_action
+            cost = self.cost_func(inventory, act, orders) + next_step_cost
+
+            if cost < min_cost:
+                new_state = new_state_temp
+                optimal_action = act
+                min_cost = cost
 
         return min_cost, optimal_action, new_state
 
@@ -201,12 +246,12 @@ class DPAgent():
 
     # generate all possible actions
     def get_delivery_variants(self):
-        yield (-1, np.zeros(self.number_of_products, dtype="int32"))
+        yield (-1, np.zeros(self.number_of_products, dtype="int64"))
         for prod_index in range(self.number_of_products):
             for count in range(MAXIMUM_DELIVERY):
-                action_vector = np.zeros(self.number_of_products, dtype="int32")
-                action_vector[prod_index] = count + 1 # TODO:should I decrease this and include 0 ? or is it checked in get_optimal_cost_action_pair?
-                yield (prod_index, action_vector) # TODO: prod index == 0 even if it is not produced ?
+                action_vector = np.zeros(self.number_of_products, dtype="int64")
+                action_vector[prod_index] = count + 1
+                yield (prod_index, action_vector)
 
     def train_adp(self):
         for step in reversed(range(self.horizon)):
@@ -222,7 +267,7 @@ class DPAgent():
         self.func_approximator_model.fit(train_dataset, epochs=EPOCHS)
 
     def create_state_and_optimal_cost_pairs(self, orders, step, sample_size):
-        state_feature_matrix = np.zeros((sample_size, (self.maximum_produce_time + 1) * self.number_of_products), dtype="int32")
+        state_feature_matrix = np.zeros((sample_size, (self.maximum_produce_time + 1) * self.number_of_products), dtype="int64")
         cost_values = np.zeros(sample_size)
         for i in range(sample_size):
             random_inventory_state = np.random.randint(MAXIMUM_INVENTORY, size=self.number_of_products)
@@ -275,9 +320,10 @@ class DPAgent():
         last_delivery_step = max(checked_time_steps) if len(checked_time_steps) > 0 else 0
         return (random_delivery_matrix, last_delivery_step)
 
-    def vectorize_counter(self, counter: Counter):
+    def vectorize_order(self, order):
+        counter_obj = Counter(order[1])
         counts = np.zeros(self.number_of_products)
-        for indx, count in counter.items():
+        for indx, count in counter_obj.items():
             counts[indx] = count
         return counts
 
@@ -291,16 +337,7 @@ class DPAgent():
 
 if __name__ == '__main__':
     agent = DPAgent(config_path="../inventory.yaml")
+    injection = [[1,2],[0,0],[0,0],[1,2],[0,2],[0,0]]
+    agent.inject_prophecy(injection)
     agent.train()
     agent.print()
-
-
-# %%
-
-arr = np.array([[1, 2, 3],[4, 5, 6]], dtype="int32")
-
-buff = arr.tobytes()
-
-frombuff = np.reshape(np.frombuffer(buff, dtype="int32"), (2,3))
-
-print(frombuff)
