@@ -6,10 +6,11 @@ import yaml
 from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Oracle
 import logging
 from itertools import chain, product
+from copy import deepcopy
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 5
-MAXIMUM_DELIVERY = 3
+MAXIMUM_INVENTORY = 2
+MAXIMUM_DELIVERY = 2
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
 
@@ -22,7 +23,7 @@ NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it crea
 # this probability while creating random states to approximate the values
 
 class DPAgent():
-    def __init__(self, config_path):
+    def __init__(self, config_path, loglevel=logging.WARNING):
 
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)
@@ -39,6 +40,8 @@ class DPAgent():
         self.store_cost_vector = np.array(list(map(lambda x: x[1]["storing_cost"], self.items)))
         self.delivery_cost_vector = np.array(list(map(lambda x: x[1]["delivery_cost"], self.items)))
         self.stock_out_cost_vector = np.array(list(map(lambda x: x[1]["stock_out_cost"], self.items)))
+        logging.basicConfig(filename="example.log", level=loglevel)
+        #logging.basicConfig(level=loglevel)
 
         # our state is "the actual inventory vector" + "the last delivery vectors of max_produce_time steps"
         # which can be thought as a (1 + self.max_produce_time)*self.number_of_products sized matrix
@@ -94,25 +97,90 @@ class DPAgent():
         else:
             self.train_dp()
 
-    def cost_of_state(self, state: np.ndarray):
+    def take_action(self, state, orders, last_delivery_time_step, action, step, look_up):
+        inventory, last_deliveries = state
+
+        act = np.array(action, dtype="int64")
+        if np.any(act > 0):
+            prod_time = self.produce_times[np.argwhere(act > 0).item()]
+            if (self.maximum_produce_time - last_delivery_time_step < prod_time):
+                # do not produce anything if we are not able to do in time...
+                act = np.zeros(self.number_of_products, dtype="int64")
+
+
+        new_inventory_temp = np.maximum(np.zeros_like(inventory, dtype="int64"), (inventory + act - orders))
+        new_inventory_temp = np.minimum(np.ones_like(inventory, dtype="int64") * MAXIMUM_INVENTORY,
+                                        new_inventory_temp)
+        new_state = np.append(new_inventory_temp[:, np.newaxis],
+                                   np.append(last_deliveries[:, 1:], act[:, np.newaxis], axis=1), axis=1)
+
+        print(f"step : {step}")
+        print(f"incelenen state inventory \n : {inventory}")
+        print(f"order : {orders}")
+        print(f"incelenen state deliveries \n : {last_deliveries}")
+        print(f"seçilen action : {act}")
+
+        next_step_cost = self.cost_of_state(new_state, look_up)
+        cost_of_this_state = self.cost_func(inventory, act, orders)
+        cost = cost_of_this_state + next_step_cost
+        print(f"current state cost : {cost_of_this_state}")
+        print(f"next state cost : {next_step_cost}")
+        print(f"şuanki total cost : {cost}")
+
+        print(f"next inventory : \n {new_inventory_temp}")
+        print(f"next deliveries : \n {new_state}")
+
+        return cost, act, new_state
+
+    def cost_of_actions(self, actions):
+        state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
+                               (self.number_of_products, self.maximum_produce_time + 1))
+        total_cost = 0
+        for step, action in enumerate(actions):
+            inventory, delivery_matrix = state[:, 0], state[:, 1:]
+            print(f'step {step}')
+            print(f'inventory \n {inventory}')
+
+            order = self.vectorize_order(self.make_orders(step, train=False))
+            print(f'order \n {order}')
+
+            last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
+
+            cost, optimal_action, state = self.take_action(
+                (inventory, delivery_matrix),
+                order,
+                last_step_delivered, action, step, self.lookup_table)
+            total_cost += cost
+
+        return total_cost
+
+    def cost_of_state(self, state: np.ndarray, look_up):
         if (self.adp):
             return self.cost_approximator_model(state)
         else:
-            return self.lookup_table.get(state.tobytes(), 0.)
+            return look_up.get(state.tobytes(), 0.)
 
     def train_dp(self):
         if len(self.states) == 0:
             self.create_state_variants() #stores states in self.states
         for step in reversed(range(self.horizon)):
+            temp_look_up_table = deepcopy(self.lookup_table)
+            logging.info(f"************RIGHT NOW LOOK UP TABLE **************")
+            for item in temp_look_up_table.items():
+                status = np.reshape(np.frombuffer(item[0], dtype="int64"),
+                               (self.number_of_products, self.maximum_produce_time + 1))
+                result = item[1]
+                logging.info(f" {status} : {result}")
+
             orders = self.vectorize_order(self.make_orders(step))
             self.orders.append(orders)
-            self.train_exact_dp(orders)
+            self.train_exact_dp(orders, step, temp_look_up_table)
         self.orders = list(reversed(self.orders))
 
-    def train_exact_dp(self, orders):
+    def train_exact_dp(self, orders, step, look_up):
         for (last_step_delivered, (inventory, delivery_matrix)) in self.states:
             cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory,delivery_matrix), orders,
-                                                                     last_step_delivered)
+                                                                     last_step_delivered, step, look_up)
 
             key = np.append(inventory[:, np.newaxis], delivery_matrix, axis=1)
             self.lookup_table[key.tobytes()] = cost
@@ -123,17 +191,22 @@ class DPAgent():
 
         for step in range(self.horizon):
             inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
+            logging.warning(f'step {step}')
             print(f'step {step}')
+
+            logging.warning(f'inventory \n {inventory}')
             print(f'inventory \n {inventory}')
             #print(f'min_state delivery_matrix \n {delivery_matrix}')
 
             order = self.vectorize_order(self.make_orders(step, train=False))
+            logging.warning(f'order \n {order}')
             print(f'order \n {order}')
 
             last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
             cost, optimal_action, min_state = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
                                                                                       order,
-                                                                                      last_step_delivered)
+                                                                                      last_step_delivered, step, self.lookup_table)
+            logging.warning(f'optimal action \n {optimal_action}')
 
             print(f'optimal action \n {optimal_action}')
 
@@ -207,7 +280,7 @@ class DPAgent():
         last_step_delivered_for_the_matrix = 0 if last_step_delivered_for_the_matrix is None else last_step_delivered_for_the_matrix
         return (last_step_delivered_for_the_matrix, True)
 
-    def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step):
+    def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step, step, look_up):
         inventory, last_deliveries = state
         min_cost = sys.maxsize
         optimal_action = np.zeros(self.number_of_products, dtype="int64")
@@ -224,11 +297,25 @@ class DPAgent():
             new_inventory_temp = np.minimum(np.ones_like(inventory, dtype="int64")*MAXIMUM_INVENTORY, new_inventory_temp)
             new_state_temp = np.append(new_inventory_temp[:, np.newaxis], np.append(last_deliveries[:, 1:], act[:, np.newaxis], axis=1), axis=1)
 
-            next_step_cost = self.cost_of_state(new_state_temp)
+            logging.info(f"step : {step}")
+            logging.info(f"incelenen state inventory \n : {inventory}")
+            logging.info(f"order : {orders}")
+            logging.info(f"incelenen state deliveries \n : {last_deliveries}")
+            logging.info(f"seçilen action : {act}")
 
-            cost = self.cost_func(inventory, act, orders) + next_step_cost
+            next_step_cost = self.cost_of_state(new_state_temp, look_up)
+            cost_of_this_state = self.cost_func(inventory, act, orders)
+            cost = cost_of_this_state + next_step_cost
+            logging.info(f"current state cost : {cost_of_this_state}")
+            logging.info(f"next state cost : {next_step_cost}")
+            logging.info(f"şuanki total cost : {cost}")
+            logging.info(f"eski cost : {min_cost}")
+
+            logging.info(f"next inventory : \n {new_inventory_temp}")
+            logging.info(f"next deliveries : \n {new_state_temp}")
 
             if cost < min_cost:
+                logging.info(f"----------------------------SEÇİLDİ----------------------------")
                 new_state = new_state_temp
                 optimal_action = act
                 min_cost = cost
@@ -328,16 +415,33 @@ class DPAgent():
         return counts
 
     def cost_func(self, inventory, delivery, orders):
+        stock_out = np.maximum([0., 0.],orders - delivery - inventory)
+        logging.info('loss calculation')
+        logging.info(f'orders \n {orders}')
+        logging.info(f'delivery \n {delivery}')
+        logging.info(f'inventory \n {inventory}')
+        logging.info(f' stock out np.maximum([0., 0.],orders - delivery - inventory) = {stock_out}')
+        logging.info(f' {self.delivery_cost_vector} dotted by {delivery} == {np.dot(self.delivery_cost_vector, delivery)} ')
+        logging.info(f' {self.store_cost_vector} dotted by {inventory} == {np.dot(self.delivery_cost_vector, inventory)} ')
+        logging.info(f' {self.stock_out_cost_vector} dotted by {stock_out} == {np.dot(self.stock_out_cost_vector, stock_out)} ')
         return np.dot(self.delivery_cost_vector, delivery) + np.dot(self.store_cost_vector, inventory) + \
-               np.dot(self.stock_out_cost_vector, np.maximum([0., 0.],orders - delivery - inventory))
+               np.dot(self.stock_out_cost_vector, stock_out)
 
     def act(self, observation):
         return
 
-
 if __name__ == '__main__':
-    agent = DPAgent(config_path="../inventory.yaml")
-    injection = [[1,2],[0,0],[0,0],[1,2],[0,2],[0,0]]
+    agent = DPAgent(config_path="../inventory.yaml", loglevel=logging.INFO)
+    injection = [[2,0],[0,0],[1,0],[2,0]]
     agent.inject_prophecy(injection)
     agent.train()
-    agent.print()
+    #agent.print()
+    #cost = agent.cost_of_actions([[2, 0], [0, 0], [1, 0], [0, 0]])
+
+#%%
+
+#agent.print()
+
+#print("------------print finishe------------")
+#cost = agent.cost_of_actions([[2,0], [0,0], [1,0], [2,0]] )
+#print(f'total cost: {cost}')
