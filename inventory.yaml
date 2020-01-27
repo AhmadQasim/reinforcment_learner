@@ -4,20 +4,20 @@ description: "Config for inventory manager environment"
 product_list:
   0:
     type: döner
-    production_time: 3
+    production_time: 2
     expire_time: 100
     counts: [1,1,10,15]
-    stock_out_cost: 20.1
-    storing_cost: 5.1
-    delivery_cost: 2.3
+    stock_out_cost: 100
+    storing_cost: 1
+    delivery_cost: 1
   1:
     type: water
     production_time: 1
     expire_time: 100
-    counts: [20,20,20,20]
-    stock_out_cost: 5.7
-    storing_cost: 1.5
-    delivery_cost: 1.2
+    counts: [0,0,0,0]
+    stock_out_cost: 10
+    storing_cost: 1
+    delivery_cost: 1
 
 #  2:
 #    type: döner

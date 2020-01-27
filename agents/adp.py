@@ -251,13 +251,16 @@ class DPAgent():
 
     def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step, step, look_up):
         inventory, last_deliveries = state
-        min_cost = sys.maxsize
+        current_state = np.append(inventory[:, np.newaxis],last_deliveries, axis=1)
+
+        min_cost = sys.maxsize if step is self.horizon-1 else self.cost_of_state(current_state, look_up)
         optimal_action = np.zeros(self.number_of_products, dtype="int64")
         new_state = np.zeros((self.number_of_products, self.maximum_produce_time))
 
         if self.maximum_produce_time > 1:
             for prod_index, action_vector in self.get_delivery_variants():
                 act = action_vector
+                last_delivery_time_step = 0 if last_delivery_time_step < self.horizon - step else last_delivery_time_step
                 if(prod_index == -1):
                     act = np.zeros(self.number_of_products, dtype="int64")
                 elif self.maximum_produce_time - last_delivery_time_step < self.produce_times[prod_index]:
@@ -516,5 +519,5 @@ if __name__ == '__main__':
 agent.print()
 
 #print("------------print finishe------------")
-#cost = agent.cost_of_actions([[2,0], [0,1], [0,0], [2,0]] )
+#cost = agent.cost_of_actions([[2,0], [0,0], [0,0], [2,0]])
 #print(f'total cost: {cost}')
