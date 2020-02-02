@@ -75,26 +75,27 @@ class DPAgent():
             self.lookup_table = {}
             self.states = []
             self.orders = []
-            self._injected_orders = []
+            self._injected_orders = [] # used for development but can be used also later as a convenient way to give orders
             self.optimal_actions = [{} for _ in range(self.horizon)]
+            self.start_state = None
 
-    def train(self):
+    def train(self, start_step=0, start_inventory=None, last_deliveries=None):
         if (self.adp):
             self.train_adp()
         else:
-            self.train_dp()
+            self.train_dp(start_step=start_step, start_inventory=start_inventory, last_deliveries=last_deliveries)
 
     def decrypt_dic_with_np_state_keys(self, lookup_table, log=False):
         temp_dic = []
         for item in lookup_table.items():
-            status = np.reshape(np.frombuffer(item[0], dtype="int64"),
+            state = np.reshape(np.frombuffer(item[0], dtype="int64"),
                                 (self.number_of_products, self.maximum_produce_time))
-            result = item[1]
+            value = item[1]
             if not log:
-                element = (status, result)
+                element = (state, value)
                 temp_dic.append(element)
             else:
-                logging.info(f" {status} : {result}")
+                logging.info(f" {state} : {value}")
 
         if not log:
             return temp_dic
@@ -110,29 +111,43 @@ class DPAgent():
         if not log:
             return actions
 
-    def train_dp(self):
+    def train_dp(self, start_step=0, start_inventory=None, last_deliveries=None):
         if len(self.states) == 0:
-            self.create_state_variants() #stores states in self.states
-        for step in reversed(range(self.horizon)):
+            self.create_state_variants() #stores all state variants in self.states
+        for step in reversed(range(self.horizon-start_step)):
             temp_look_up_table = deepcopy(self.lookup_table)
             logging.info(f"************RIGHT NOW LOOK UP TABLE **************")
             self.decrypt_dic_with_np_state_keys(temp_look_up_table, log=True)
 
             orders = self.vectorize_order(self.make_orders(step))
             self.orders.append(orders) #we store the orders to get the same orders in the forward pass
-            self.train_exact_dp(orders, step, temp_look_up_table)
+            self.train_exact_dp(orders, step, temp_look_up_table, start_inventory, last_deliveries)
         #after training the orders will be processed in the normal order
         self.orders = list(reversed(self.orders))
 
-    def train_exact_dp(self, orders, step, look_up):
+    def train_exact_dp(self, orders, step, look_up, start_inventory, start_last_deliveries):
         optimal_action_table = {}
         for (last_step_delivered, (inventory, delivery_matrix)) in self.states:
+            if step is 0 and start_inventory is not None:
+                inventory = start_inventory
+                shape = np.shape(start_last_deliveries)
+                shape_len = len(shape)
+                steps_in_last_delivery = shape[1] if shape_len > 1 else shape[0]
+                if shape_len is 1:
+                    delivery_matrix = start_last_deliveries[:, np.newaxis]
+                else:
+                    delivery_matrix[:, -steps_in_last_delivery:] = start_last_deliveries # TODO: is here wrong? I think it is okay
+                last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
+
             cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory,delivery_matrix), orders,
-                                                                     last_step_delivered, step, look_up)
+                                                                     last_step_delivered, step, look_up, start_inventory)
             if self.maximum_produce_time > 1:
                 key = np.array(np.append(inventory[:, np.newaxis], delivery_matrix, axis=1), dtype="int64")
             else:
                 key = np.array(inventory, dtype="int64")
+
+            if step is 0 and start_inventory is not None:
+                self.start_state = key
 
             self.lookup_table[key.tobytes()] = cost
             self.optimal_actions[step][key.tobytes()] = optimal_action
@@ -295,6 +310,10 @@ class DPAgent():
 
                 new_inventory_temp = np.maximum(np.zeros_like(inventory, dtype="int64"), (inventory + act - orders))
                 new_inventory_temp = np.minimum(np.ones_like(inventory, dtype="int64")*MAXIMUM_INVENTORY, new_inventory_temp)
+
+                if len(np.shape(last_deliveries)) is 1:
+                    last_deliveries = last_deliveries[:, np.newaxis]
+
                 new_state_temp = np.array(np.append(new_inventory_temp[:, np.newaxis], np.append(last_deliveries[:, 1:], act[:, np.newaxis], axis=1), axis=1), dtype="int64")
 
                 logging.info(f"step : {step}")
@@ -323,7 +342,7 @@ class DPAgent():
                     optimal_action = act
                     min_cost = cost
 
-            return min_cost, optimal_action, new_state
+            return min_cost, optimal_action, new_state # TODO: new state is not tuple but the parameter state is tuple, they should be same
         else:
             for prod_index, action_vector in self.get_delivery_variants():
                 inventory_temp = np.maximum(np.zeros_like(inventory, dtype="int64"), (inventory + action_vector - orders))
@@ -342,6 +361,12 @@ class DPAgent():
 
     def get_last_delivery_step_of_delivery_matrix(self, delivery_matrix):
         last_step_delivered_for_the_matrix = 0
+
+        if np.shape(delivery_matrix)[-1] is 1:
+            if np.any(delivery_matrix > 0):
+                return 1
+            return 0
+
         for ind, column_in_original_matrix in enumerate(delivery_matrix.T):
             if not np.any(column_in_original_matrix > 0):
                 continue
@@ -380,15 +405,16 @@ class DPAgent():
 
     def vectorize_order(self, order):
         counter_obj = Counter(order[1])
+        counts = self.vectorize_counter(counter_obj)
+        return counts
+
+    def vectorize_counter(self, counter):
         counts = np.zeros(self.number_of_products)
-        for indx, count in counter_obj.items():
+        for indx, count in counter.items():
             counts[indx] = count
         return counts
 
-    def act(self, observation):
-        return
-
-    def act(self, step):
+    """def act(self, step):
         for step in range(self.horizon):
             min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"), (self.number_of_products, self.maximum_produce_time))
             inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
@@ -397,10 +423,70 @@ class DPAgent():
             cost, optimal_action, next_state = self.get_optimal_cost_action_pair_and_new_state((inventory, delivery_matrix),
                                                                                       orders,
                                                                                       last_step_delivered)
-            print(optimal_action)
+            print(optimal_action)"""
+
+    def get_starting_point(self):
+        min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
+                               (self.number_of_products, self.maximum_produce_time))
+        return min_state
+
+    def act(self, observation, step, done=False):
+        # make an observation of inventory x and orders o
+        inventory_product_list = observation['inventory_state']['products']
+        product_counter = Counter(getattr(product, '_item_type') for product in inventory_product_list)
+
+        order_queue_list = observation['consumer_step']['order_queue']
+        order_counter = Counter(getattr(order, '_item_type') for order in order_queue_list)
+
+        product_vector = self.vectorize_counter(product_counter)
+        order_counter = self.vectorize_counter(order_counter)
+
+        min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
+                               (self.number_of_products, self.maximum_produce_time))
+
+        for step in range(self.horizon):
+            inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
+            action_table = self.optimal_actions[step]
+            action = action_table[min_state.tobytes()]
+            logging.critical(f'step {step}')
+            logging.critical(f'inventory \n {inventory}')
+            logging.error(f'latest delivery \n {delivery_matrix}')
+            order = None
+            if len(self._injected_orders) == 0:
+                order = self.make_orders(step, train=False)
+            else:
+                order = self.vectorize_order(self.make_orders(step, train=False))
+
+            logging.critical(f'order \n {order}')
+            logging.critical(f'delivery \n {action}')
+            cost, act, min_state = self.take_action(min_state, order, 0, action, step)
+
+        """while True:
+            delta = 0.0
+            # ToDo: current step and forward only
+            for state in range(self.env.episode_max_steps):
+                if state < self.env.timestep:
+                    continue
+                expected_action_values = self.one_step_lookahead(state, product_counter, order_counter)
+                best_action_value = np.min(expected_action_values)
+
+                delta = max(delta, np.abs(best_action_value - self.value_function[state]))
+
+                self.value_function[state] = best_action_value
+
+            if delta < self.theta:
+                #print(self. value_function)
+                expected_action_values = self.one_step_lookahead(self.env.timestep, product_counter, order_counter)
+                best_action = np.argmin(expected_action_values)
+                #print('Best action ' + str(best_action) + ' after ' + str(i) + ' value iterations.')
+                #Todo: hack for fixed product ID
+                return [0, best_action]"""
+
+    def nonvectorize_orders(self, orders):
+        return [(sum(order), [index for index, item in enumerate(order) for _ in range(item)]) for order in orders]
 
     def inject_prophecy(self, orders):
-        orders_non_vectorized = [(sum(order), [index for index, item in enumerate(order) for _ in range(item)]) for order in orders]
+        orders_non_vectorized = self.nonvectorize_orders(orders)
         self._injected_orders = orders_non_vectorized
         self.horizon = len(orders)
         self.optimal_actions = [{} for _ in range(self.horizon)]
@@ -490,6 +576,8 @@ class DPAgent():
     def print_optimal(self):
         min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
                                (self.number_of_products, self.maximum_produce_time))
+        if self.start_state is not None:
+            min_state = self.start_state
 
         for step in range(self.horizon):
             inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
@@ -561,7 +649,7 @@ if __name__ == '__main__':
     #injection = [[1,0],[2,0]] # order 1 of first product in first time step, 2 of first product in second time step
     injection = [[1,0],[0,0], [1,0], [2,0]] # order 1 of first product in first time step, 1 of first product in third time step and 2 of first product in last step
     agent.inject_prophecy(injection)
-    agent.train()
+    agent.train(start_step=0, start_inventory=np.array([1, 0], dtype="int64"), last_deliveries= np.array([1,0], dtype="int64"))
     #cost = agent.cost_of_actions([[2, 0], [0, 0], [1, 0], [0, 0]])
 
 #%%
