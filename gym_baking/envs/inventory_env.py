@@ -104,7 +104,7 @@ class ProducerModel():
         for i in range(num_product):
             item = ProductItem(
                 self.config[product_type]["type"],
-                self.config[product_type]["production_time"], 
+                self.config[product_type]["production_time"]-1,
                 self.config[product_type]["expire_time"])
             self._production_queue.append(item)
         
@@ -179,16 +179,19 @@ class InventoryManagerEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action), "invalid action {}".format(action)
         self.act = action
- 
+
         ready_products = self._producer_model.get_ready_products()
+        did_start = self._producer_model.start_producing(action[0], action[1])
+        self._producer_model.step()
         did_deliver = True if len(ready_products) is not 0 else False
+        if not did_start and did_deliver:
+            self._producer_model.start_producing(action[0], action[1])
+            self._producer_model.step()
 
         self._inventory.add(ready_products)
         curr_products = self._inventory.get_state()["products"]
         taken_products = self._consumer_model._serve_orders(curr_products, self.timestep)
         self._inventory.take(taken_products)
-        self._producer_model.start_producing(action[0], action[1])
-        self._producer_model.step()
         self._consumer_model.step()
         self._inventory.step()
 
@@ -245,7 +248,6 @@ class InventoryManagerEnv(gym.Env):
             self.axes[3].plot(self.state_history["serve_queue_"+key], label = 'serve_queue_'+key)
         self.axes[3].legend(loc="upper right")
         self.axes[3].set_title("consumer model")
-
         plt.subplots_adjust(hspace=0.3)
         plt.draw()
         plt.pause(0.001)

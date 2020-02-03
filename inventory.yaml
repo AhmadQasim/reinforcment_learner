@@ -28,6 +28,7 @@ product_list:
 #    storing_cost: 1
 #    delivery_cost: 1
 
+PREDICTION: [[1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0], [7,1], [2,5], [2,5], [0,0], [7,1], [1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0]]
 weight_list: [1000, 1000, 1000]
 episode_max_steps: 20
 top_n_items: 1

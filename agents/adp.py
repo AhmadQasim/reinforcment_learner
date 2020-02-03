@@ -24,6 +24,7 @@ LEARNING_RATE = 1e-3
 NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it creates actions without any delivery with
 # this probability while creating random states to approximate the values
 
+YAML = "inventory.yaml"
 class DPAgent():
     def __init__(self, config_path, loglevel=logging.WARNING):
 
@@ -86,14 +87,14 @@ class DPAgent():
         self.lookup_table = {}
         self.states = []
         self.orders = []
-        self._injected_orders = []  # used for development but can be used also later as a convenient way to give orders
+        self._injected_orders = []
         self.start_state = None
 
-    def train(self, start_step=0, start_inventory=None, last_deliveries=None):
+    def train(self, start_step=0, start_inventory=None, last_deliveries=None, env_not_used=True):
         if (self.adp):
             self.train_adp()
         else:
-            self.train_dp(start_step=start_step, start_inventory=start_inventory, last_deliveries=last_deliveries)
+            self.train_dp(env_not_used, start_step=start_step, start_inventory=start_inventory, last_deliveries=last_deliveries)
 
     def get_next_action_and_score(self, print_meanwhile=False):
         min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
@@ -130,7 +131,7 @@ class DPAgent():
             cost, act, min_state = self.take_action(min_state, order, 0, action, step)
             total_cost += cost
         if print_meanwhile:
-            logging.critical(f'cost of this solution is {cost}')
+            logging.critical(f'cost of this solution is {total_cost}')
             logging.critical(f'produce order of now is {returned_act}')
         return returned_act, total_cost, first_inventory
 
@@ -171,8 +172,7 @@ class DPAgent():
         return self.vectorize_order(["dummyval", [self.index_of_product_type(product._item_type) for product in state["products"]]])
 
     def train_with_env(self):
-        env = gym.make('gym_baking:Inventory-v0', config_path='../inventory.yaml')
-        env.config
+        env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
         for episode in range(1):
             observation = env.reset()
             reward = 0
@@ -187,11 +187,12 @@ class DPAgent():
                 env._consumer_model.is_overriden = True
                 self.refresh()
                 self.inject_prediction(prediction)
-                self.train(start_step=timestep, start_inventory= start_inventory, last_deliveries=last_deliveries)
+                self.train(start_step=timestep, start_inventory= start_inventory, last_deliveries=last_deliveries, env_not_used=False)
                 act, score, inv = self.get_next_action_and_score()
 
                 if timestep is 0:
                     env.add_deliveries(inv)
+                    print(f' inv \n {inv}')
 
                 action = np.zeros(2, dtype="int64")
                 if np.any(act > 0):
@@ -209,35 +210,42 @@ class DPAgent():
                 if len(np.shape(last_deliveries)) is 1:
                     last_deliveries = last_deliveries[:, np.newaxis]
 
+                print(f' observation \n {observation}')
+                print(f' act \n {act}')
+                print(f' inventory after order \n {start_inventory}')
+                print(f' last_deliveries \n {last_deliveries}')
+
+                print(f'{timestep}')
                 if done:
                     print('Episode finished after {} timesteps'.format(timestep))
                     break
         env.close()
         return
 
-    def train_dp(self, start_step=0, start_inventory=None, last_deliveries=None):
+    def train_dp(self, env_not_used=True, start_step=0, start_inventory=None, last_deliveries=None):
         if len(self.states) == 0:
             self.create_state_variants() #stores all state variants in self.states
 
         #commented out when train_with_env is used
-        #if self._injected_orders:
-        #    self.inject_prediction(self.vectorize_orders(self._injected_orders)[-(self.horizon - start_step):])
+        range_ = self.horizon
+        if env_not_used:
+            if self._injected_orders:
+                self.inject_prediction(self.vectorize_orders(self._injected_orders)[-(self.horizon - start_step):])
 
-        #range_ = self.horizon-start_step if not self._injected_orders else self.horizon
-        #for step in reversed(range(range_)):
+            range_ = self.horizon-start_step if not self._injected_orders else self.horizon
 
-        for step in reversed(range(self.horizon)):
+        for step in reversed(range(range_)):
             temp_look_up_table = deepcopy(self.lookup_table)
             logging.info(f"************RIGHT NOW LOOK UP TABLE **************")
             self.decrypt_dic_with_np_state_keys(temp_look_up_table, log=True)
 
             orders = self.vectorize_order(self.make_orders(step))
             self.orders.append(orders) #we store the orders to get the same orders in the forward pass
-            self.train_exact_dp(orders, step, temp_look_up_table, start_inventory, last_deliveries)
+            self.train_exact_dp(orders, step, temp_look_up_table, start_inventory, last_deliveries, start_step)
         #after training the orders will be processed in the normal order
         self.orders = list(reversed(self.orders))
 
-    def train_exact_dp(self, orders, step, look_up, start_inventory, start_last_deliveries):
+    def train_exact_dp(self, orders, step, look_up, start_inventory, start_last_deliveries, start_step):
         optimal_action_table = {}
         for (last_step_delivered, (inventory, delivery_matrix)) in self.states:
             if step is 0 and start_inventory is not None:
@@ -252,7 +260,7 @@ class DPAgent():
                 last_step_delivered = self.get_last_delivery_step_of_delivery_matrix(delivery_matrix)
 
             cost, optimal_action, _ = self.get_optimal_cost_action_pair_and_new_state((inventory,delivery_matrix), orders,
-                                                                     last_step_delivered, step, look_up, start_inventory)
+                                                                     last_step_delivered, step, look_up, start_inventory, start_step)
             if self.maximum_produce_time > 1:
                 key = np.array(np.append(inventory[:, np.newaxis], delivery_matrix, axis=1), dtype="int64")
             else:
@@ -409,7 +417,7 @@ class DPAgent():
         last_step_delivered_for_the_matrix = 0 if last_step_delivered_for_the_matrix is None else last_step_delivered_for_the_matrix
         return (last_step_delivered_for_the_matrix, True)
 
-    def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step, step, look_up, forward=False):
+    def get_optimal_cost_action_pair_and_new_state(self, state, orders, last_delivery_time_step, step, look_up, forward=False, start_step=0):
         inventory, last_deliveries = state
         min_cost = sys.maxsize
         optimal_action = np.zeros(self.number_of_products, dtype="int64")
@@ -419,7 +427,7 @@ class DPAgent():
             for prod_index, action_vector in self.get_delivery_variants():
                 act = action_vector
                 #last_delivery_time_step = 0 if last_delivery_time_step < (self.maximum_produce_time-1) - step else last_delivery_time_step
-                if step < self.produce_times[prod_index]:
+                if start_step+step < self.produce_times[prod_index]:
                     act = np.zeros(self.number_of_products, dtype="int64")
 
                 if(prod_index == -1):
@@ -700,10 +708,11 @@ class DPAgent():
                     None, step, self.lookup_table)
 
 if __name__ == '__main__':
-    agent = DPAgent(config_path="../inventory.yaml", loglevel=logging.CRITICAL)
+    agent = DPAgent(config_path=YAML, loglevel=logging.CRITICAL)
     #injection = [[1,0],[2,0]] # order 1 of first product in first time step, 2 of first product in second time step
     #injection = [[1,0],[0,0], [1,0], [2,5]] # 1 order of first product in first time step, 1 of first product in third time step and 2 of first product in last step
-    #agent.inject_prediction(injection)
+    #injection_long = [[1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0], [7,1], [2,5], [2,5], [0,0], [7,1], [1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0]]
+    #agent.inject_prediction(injection_long)
     # first we train from beginning
     #agent.train()
     # and then when we give the state of the first step in the optimal solution as below it gives the correct produce commend
