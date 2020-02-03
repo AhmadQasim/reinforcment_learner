@@ -11,7 +11,7 @@ class BaseConsumer():
         self.state = {}
         self.state["order_queue"] = []
 
-        self.dummy_data = np.load('../reinforcemnet_learner/consumer_demand.npy')
+        #self.dummy_data = np.load('../reinforcemnet_learner/consumer_demand.npy')
 
     def reset(self):
         self._order_queue.clear()
@@ -34,20 +34,11 @@ class BaseConsumer():
         """
         split orders and available, remove orders from the order queue
         """
-        '''
-        n, type_ids = self.make_orders(inventory_products, self._order_queue, timestep)
-        
+        n, type_ids = self.make_orders(timestep)
+
         for i in range(n):
             order = Order(self.products[type_ids[i]]['type'])
             self._order_queue.append(order)
-        '''
-
-        # Overwrite the consumer model
-        n = int(self.dummy_data[timestep])
-        for i in range(n):
-            order = Order(self.products[0]['type'])
-            self._order_queue.append(order)
-
 
         order_counter = Counter([x._item_type for x in self._order_queue])
         product_counter = Counter([x._item_type for x in inventory_products])

@@ -46,7 +46,7 @@ class Inventory():
     def add(self, products):
         for item in products:
             self._products.append(item)
-        
+
     def take(self, products):
         for item in products:
             self._products.remove(item)
@@ -77,6 +77,13 @@ class ProducerModel():
     def reset(self):
         self._production_queue.clear()
         return self.get_state()
+
+    def get_product(self, age, type):
+        item = ProductItem(
+            self.config[type]["type"],
+            -1,
+            self.config[type]["expire_time"])
+        return item
 
     def get_state(self):
         self.state["production_queue"] = self._production_queue.copy()
@@ -113,7 +120,8 @@ class InventoryManagerEnv(gym.Env):
     def __init__(self, config_path):
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)
-        
+
+        self.config = config
         self.products = config['product_list']
         self.episode_max_steps = config['episode_max_steps']
         self._validate_config(self.products)
@@ -134,10 +142,22 @@ class InventoryManagerEnv(gym.Env):
 
         self.state_history = {}
         self._metric = Metric(self.products)
+        self.is_first_delivery_injected = False
     
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def add_deliveries(self, deliveries: np.ndarray):
+        if not self.is_first_delivery_injected:
+            ready_products = []
+            for ind, count in enumerate(deliveries):
+                for i in range(count):
+                    item = self._producer_model.get_product(age=-1, type=ind)
+                    ready_products.append(item)
+
+            self._inventory.add(ready_products)
+            self.is_first_delivery_injected = True
 
     def reset(self):
         self.timestep = 0
@@ -161,6 +181,8 @@ class InventoryManagerEnv(gym.Env):
         self.act = action
  
         ready_products = self._producer_model.get_ready_products()
+        did_deliver = True if len(ready_products) is not 0 else False
+
         self._inventory.add(ready_products)
         curr_products = self._inventory.get_state()["products"]
         taken_products = self._consumer_model._serve_orders(curr_products, self.timestep)
@@ -187,7 +209,7 @@ class InventoryManagerEnv(gym.Env):
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
-        return observation, reward, done, metric_info
+        return observation, reward, done, metric_info, did_deliver
 
     def render(self, mode='human', close=False):
         if not self.state_history:

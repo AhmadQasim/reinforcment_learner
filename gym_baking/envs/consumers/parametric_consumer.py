@@ -1,8 +1,6 @@
 # %%
 import numpy as np
 from gym_baking.envs.consumers.base_consumer import BaseConsumer
-from collections import Counter
-import matplotlib.pyplot as plt
 
 
 def sample_from_multinomial(probs):
@@ -54,6 +52,8 @@ class PoissonConsumerModel(BaseConsumer):
         self.counts_list = [product['counts'] for key, product in self.products.items()]
         self.numbers_of_dilation = [float(len(counts)) for counts in self.counts_list]
         self.lambdas_list = self._get_lambdas_list(self.counts_list)
+        self.is_overriden = False
+        self.prediction = config['PREDICTION']
 
     def _lambdas_for_timestep(self, timestep):
         lambda_vals = []
@@ -69,10 +69,18 @@ class PoissonConsumerModel(BaseConsumer):
             lambdas_list.append([count * self.numbers_of_dilation[ind] / self.maximum_time_steps for count in counts])
         return lambdas_list
 
-    def make_orders(self, inventory_products, order_queue, timestep):
+    def make_orders(self, timestep):
         poisson_outcomes = [sample_from_poisson(i) for i in self._lambdas_for_timestep(timestep)]
         number_of_items = np.sum(poisson_outcomes)
         items = [i for i, item_count in enumerate(poisson_outcomes) for _ in range(item_count)]
+
+        #override orders
+        if self.is_overriden:
+            item_list = self.prediction
+            number_of_item_list = [sum(lst) for lst in self.prediction]
+            a = [index for index, item in enumerate(item_list[timestep]) for _ in range(item)]
+            return (number_of_item_list[timestep],a)
+
         return number_of_items, items
 
 # %%
