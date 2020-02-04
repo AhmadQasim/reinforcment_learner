@@ -11,8 +11,8 @@ import gym
 
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 2
-MAXIMUM_DELIVERY = 2
+MAXIMUM_INVENTORY = 6
+MAXIMUM_DELIVERY = 3
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
 
@@ -86,6 +86,7 @@ class DPAgent():
     def refresh(self):
         self.lookup_table = {}
         self.orders = []
+        self.states = []
         self._injected_orders = []
         self.start_state = None
 
@@ -181,7 +182,7 @@ class DPAgent():
             # just for now
             horizon = len(self.prediction)
             for timestep in range(horizon):
-                env.render()
+                #env.render()
                 prediction = self.pretend_oracle(last_orders=last_deliveries, time_step=timestep)
                 env._consumer_model.is_overriden = True
                 self.refresh()
@@ -191,7 +192,7 @@ class DPAgent():
 
                 if timestep is 0:
                     env.add_deliveries(inv)
-                    print(f' inv \n {inv}')
+                    #print(f' inv \n {inv}')
 
                 action = np.zeros(2, dtype="int64")
                 if np.any(act > 0):
@@ -209,15 +210,18 @@ class DPAgent():
                 if len(np.shape(last_deliveries)) is 1:
                     last_deliveries = last_deliveries[:, np.newaxis]
 
-                print(f' observation \n {observation}')
-                print(f' act \n {act}')
-                print(f' inventory after order \n {start_inventory}')
-                print(f' last_deliveries \n {last_deliveries}')
+                #print(f' observation \n {observation}')
+                #print(f' act \n {act}')
+                #print(f' inventory after order \n {start_inventory}')
+                #print(f' last_deliveries \n {last_deliveries}')
 
-                print(f'{timestep}')
+                #print(f'{timestep}')
                 if done:
-                    print('Episode finished after {} timesteps'.format(timestep))
+                    #print('Episode finished after {} timesteps'.format(timestep))
                     break
+
+        s, i = env._metric.get_metric(state_history=env.state_history, done=True)
+        print(f'score: {s} and \n info {i}')
         env.close()
         return
 
