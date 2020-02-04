@@ -1,7 +1,7 @@
 import sys
 import numpy as np
 from collections import Counter
-import tensorflow as tf
+#import tensorflow as tf
 import yaml
 from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Oracle
 import logging
@@ -67,12 +67,12 @@ class DPAgent():
             #adp part hasn't been checked yet
             logging.info('doing approximate dp analysis')
             self.adp = True
-            inputs = tf.keras.Input(shape=((self.maximum_produce_time) * self.number_of_products,), name='state')
-            x = tf.keras.layers.Dense(64, activation='relu', name='dense_1')(inputs)
-            x = tf.keras.layers.Dense(64, activation='relu', name='dense_2')(x)
-            x = tf.keras.layers.Dense(64, activation='relu', name='dense_3')(x)
-            outputs = tf.keras.layers.Dense(1, activation='softmax', name='costs')(x)
-            self.cost_approximator_model = tf.keras.Model(inputs=inputs, outputs=outputs)
+            #inputs = tf.keras.Input(shape=((self.maximum_produce_time) * self.number_of_products,), name='state')
+            #x = tf.keras.layers.Dense(64, activation='relu', name='dense_1')(inputs)
+            #x = tf.keras.layers.Dense(64, activation='relu', name='dense_2')(x)
+            #x = tf.keras.layers.Dense(64, activation='relu', name='dense_3')(x)
+            #outputs = tf.keras.layers.Dense(1, activation='softmax', name='costs')(x)
+            #self.cost_approximator_model = tf.keras.Model(inputs=inputs, outputs=outputs)
         else:
             logging.info('doing exact dp analysis')
             self.adp = False
@@ -85,7 +85,6 @@ class DPAgent():
 
     def refresh(self):
         self.lookup_table = {}
-        self.states = []
         self.orders = []
         self._injected_orders = []
         self.start_state = None
@@ -283,12 +282,12 @@ class DPAgent():
             state_feature_matrix, cost_values = self.create_state_and_optimal_cost_pairs(orders, step, sample_size=SAMPLE_SIZE)
             self.train_neural_network(state_feature_matrix, cost_values)
 
-    def train_neural_network(self, feature_matrix, y_values):
-        #TODO: todo in this side
-        train_dataset = tf.data.Dataset.from_tensor_slices((feature_matrix, y_values)).batch(BATCH_SIZE)
-        self.func_approximator_model.compile(optimizer=tf.keras.optimizers.RMSprop(learning_rate=LEARNING_RATE),
-                           loss=tf.keras.losses.MeanSquaredError())
-        self.func_approximator_model.fit(train_dataset, epochs=EPOCHS)
+    # def train_neural_network(self, feature_matrix, y_values):
+       # TODO: todo in this side
+       # train_dataset = tf.data.Dataset.from_tensor_slices((feature_matrix, y_values)).batch(BATCH_SIZE)
+       # self.func_approximator_model.compile(optimizer=tf.keras.optimizers.RMSprop(learning_rate=LEARNING_RATE),
+       #                    loss=tf.keras.losses.MeanSquaredError())
+       # self.func_approximator_model.fit(train_dataset, epochs=EPOCHS)
 
     def make_orders(self, step, train=True):
         if len(self._injected_orders) == 0:
