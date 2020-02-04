@@ -7,6 +7,7 @@ class BaseConsumer():
     def __init__(self, config):
         self.config = config
         self.products = config['product_list']
+        self.domain_randomization = config['domain_randomization']
         self._order_queue = []
         self.state = {}
         self.state["order_queue"] = []

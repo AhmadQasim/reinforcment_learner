@@ -1,5 +1,4 @@
 from collections import Counter
-import uuid
 import yaml
 import numpy as np
 import gym
@@ -7,69 +6,20 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 
-#from gym_baking.envs.consumers.regression_consumer import RegressionConsumer as Consumer
+from gym_baking.envs.inventory import Inventory
+from gym_baking.envs.product_item import ProductItem
 from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Consumer
 
-
-class ProductItem():
-    def __init__(self, item_type, production_time, expire_time):
-        self._id = uuid.uuid1()
-        self._item_type = item_type
-        # how long it takes to produce
-        self._production_time = production_time
-
-        # how long the product stays fresh
-        self._expire_time = expire_time
-
-        # age of product, if negative it is still being produced
-        self.age = -production_time
-    
-    def is_done(self):
-        return self.age > 0
-
-    def is_fresh(self):
-        return self.age < self._expire_time
-
-    def step(self):
-        self.age += 1
-
-
-class Inventory():
-    def __init__(self):
-        self._products = []
-        self.state = {'products': self._products}
-
-    def reset(self):
-        self._products.clear()
-        return self.get_state()
-
-    def add(self, products):
-        for item in products:
-            self._products.append(item)
-
-    def take(self, products):
-        for item in products:
-            self._products.remove(item)
-
-    def get_state(self):
-        self.state["products"] = self._products.copy()
-        return self.state
-
-    def step(self):
-        for item in self._products:
-            item.step()
-
-
-class ProducerModel():
+class ProducerModel:
     def __init__(self, config):
         self.config = config
         self._production_queue = []
-        self.state = {}
+        self.state = dict()
         self.state["production_queue"] = []
         self.state["is_busy"] = self.is_busy()
 
     def is_busy(self):
-        return len(self._production_queue)>0
+        return len(self._production_queue) > 0
 
     def _is_all_ready(self):
         return all([x.is_done() for x in self._production_queue])
@@ -128,7 +78,7 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,30]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 30]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)
@@ -207,8 +157,8 @@ class InventoryManagerEnv(gym.Env):
         self.timestep += 1
         
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
-        
-        done = self.timestep>self.episode_max_steps
+
+        done = self.timestep >= self.episode_max_steps
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
@@ -286,7 +236,7 @@ class InventoryManagerEnv(gym.Env):
             self.axes = None
 
 
-class Metric():
+class Metric:
     def __init__(self, config):
         self.config = config
         self.product_list = [x["type"] for x in self.config.values()]
