@@ -78,7 +78,7 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 6]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 2]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)

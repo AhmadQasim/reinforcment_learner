@@ -32,8 +32,8 @@ class BaselineAgent():
         self.test_eps = 1
         self.test_rewards = []
 
-        self.min_quantity = 1
-        self.max_quantity = 6
+        self.min_quantity = 4
+        self.max_quantity = 5
 
     def take_action(self, state):
 
@@ -43,10 +43,10 @@ class BaselineAgent():
         for item in range(self.items_count):
             if item not in state[1].keys() or state[1][item][0] < self.min_quantity:
                 action[0] = item
-                action[1] = self.max_quantity
+                action[1] = 2
 
         # take action
-        new_observation, reward, done, info, _ = self.env.step(action)
+        new_observation, reward, done, info, _, _ = self.env.step(action)
 
         return new_observation, reward, done
 
@@ -58,13 +58,13 @@ class BaselineAgent():
     def test(self):
         total_mean_reward = []
         total_reward = 0
-        self.env._consumer_model.is_overriden = True
+        self.env._consumer_model.is_overriden = False
 
         for ep in range(self.test_eps):
             episode_reward = []
             self.env.reset()
             self.env.step(self.env.action_space.sample())
-            obs, reward, done, bcd, asd = self.env.step(self.env.action_space.sample())
+            obs, reward, done, _, _, _ = self.env.step(self.env.action_space.sample())
             obs = utils.observation_state_vector(obs, return_count=True, items_to_id=self.items_to_id)
 
             for j in range(self.max_steps_per_episode - 2):

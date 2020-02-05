@@ -11,8 +11,8 @@ import gym
 from demand_models.ar_demand_predictor import AutoRegressiveDemandPredictor
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 10
-MAXIMUM_DELIVERY = 6
+MAXIMUM_INVENTORY = 5
+MAXIMUM_DELIVERY = 2
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
 
@@ -173,7 +173,7 @@ class DPAgent():
 
     def train_with_env(self):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
-        predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=5, model_path="../saved_models")
+        predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=1, model_path="../saved_models")
         for episode in range(1):
             observation = env.reset()
             reward = 0
@@ -181,20 +181,20 @@ class DPAgent():
             last_deliveries = np.zeros((self.number_of_products, self.maximum_produce_time-1), dtype="float64")
             start_inventory = None
             # just for now
-            horizon = len(self.prediction)
-            curr_data = [np.zeros((1,1)) for _ in range(self.number_of_products)]
-            for timestep in range(horizon):
+            #horizon = len(self.prediction)
+            curr_data = [0 for _ in range(self.number_of_products)]
+            for timestep in range(self.horizon):
                 #env.render()
                 #prediction = self.pretend_oracle(last_orders=last_deliveries, time_step=timestep)
                 prediction_matrix = [[0 for _ in range(self.number_of_products)] for i in range(self.horizon)]
                 for i in range(self.number_of_products):
-                    prediction = predictor.predict(curr_data=curr_data[i], pred_steps=horizon-timestep, item=i)
+                    prediction = predictor.predict(curr_data=np.array(curr_data[i]).reshape(1, 1), pred_steps=self.horizon-timestep, item=i)
                     for ind_p, p in enumerate(prediction):
                         prediction_matrix[ind_p][i] = p
 
                 env._consumer_model.is_overriden = False
                 self.refresh()
-                self.inject_prediction(prediction)
+                self.inject_prediction(prediction_matrix)
                 self.train(start_step=timestep, start_inventory= start_inventory, last_deliveries=last_deliveries, env_not_used=False)
                 act, score, inv = self.get_next_action_and_score()
 
@@ -228,9 +228,10 @@ class DPAgent():
                 if done:
                     #print('Episode finished after {} timesteps'.format(timestep))
                     break
+                s, i = env._metric.get_metric(state_history=env.state_history, done=True)
+                print(f'timestep {timestep}')
+                print(f'score: {s} and \n info {i}')
 
-        s, i = env._metric.get_metric(state_history=env.state_history, done=True)
-        print(f'score: {s} and \n info {i}')
         env.close()
         return
 
