@@ -68,7 +68,7 @@ class BaseConsumer():
         for item_type, num in union_counter.items():
             serve_queue += inventory_dict.get(item_type, [])[:num]
 
-        return serve_queue
+        return serve_queue, type_ids
 
     def step(self):
         for order in self._order_queue:

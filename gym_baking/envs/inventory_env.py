@@ -78,7 +78,7 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 3]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 6]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)
@@ -140,7 +140,7 @@ class InventoryManagerEnv(gym.Env):
 
         self._inventory.add(ready_products)
         curr_products = self._inventory.get_state()["products"]
-        taken_products = self._consumer_model._serve_orders(curr_products, self.timestep)
+        taken_products, type_ids = self._consumer_model._serve_orders(curr_products, self.timestep)
         self._inventory.take(taken_products)
         self._consumer_model.step()
         self._inventory.step()
@@ -162,7 +162,7 @@ class InventoryManagerEnv(gym.Env):
 
         reward, metric_info = self._metric.get_metric(self.state_history, done)
 
-        return observation, reward, done, metric_info, did_deliver
+        return observation, reward, done, metric_info, did_deliver, type_ids
 
     def render(self, mode='human', close=False):
         if not self.state_history:

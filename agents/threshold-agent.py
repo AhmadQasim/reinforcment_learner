@@ -33,7 +33,7 @@ class BaselineAgent():
         self.test_rewards = []
 
         self.min_quantity = 1
-        self.max_quantity = 3
+        self.max_quantity = 6
 
     def take_action(self, state):
 

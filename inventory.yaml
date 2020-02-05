@@ -6,7 +6,7 @@ product_list:
     type: döner
     production_time: 2
     expire_time: 100
-    counts: [1,1,10,15]
+    counts: [10,20,40,60]
     stock_out_cost: 10
     storing_cost: 1
     delivery_cost: 1
@@ -15,7 +15,7 @@ product_list:
     type: water
     production_time: 1
     expire_time: 100
-    counts: [0,0,0,0]
+    counts: [30,10,30,20]
     stock_out_cost: 10
     storing_cost: 1
     delivery_cost: 1

@@ -8,11 +8,11 @@ import logging
 from itertools import chain, product
 from copy import deepcopy
 import gym
-
+from demand_models.ar_demand_predictor import AutoRegressiveDemandPredictor
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 3
-MAXIMUM_DELIVERY = 3
+MAXIMUM_INVENTORY = 10
+MAXIMUM_DELIVERY = 6
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
 
@@ -173,6 +173,7 @@ class DPAgent():
 
     def train_with_env(self):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
+        predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=5, model_path="../saved_models")
         for episode in range(1):
             observation = env.reset()
             reward = 0
@@ -181,10 +182,17 @@ class DPAgent():
             start_inventory = None
             # just for now
             horizon = len(self.prediction)
+            curr_data = [np.zeros((1,1)) for _ in range(self.number_of_products)]
             for timestep in range(horizon):
                 #env.render()
-                prediction = self.pretend_oracle(last_orders=last_deliveries, time_step=timestep)
-                env._consumer_model.is_overriden = True
+                #prediction = self.pretend_oracle(last_orders=last_deliveries, time_step=timestep)
+                prediction_matrix = [[0 for _ in range(self.number_of_products)] for i in range(self.horizon)]
+                for i in range(self.number_of_products):
+                    prediction = predictor.predict(curr_data=curr_data[i], pred_steps=horizon-timestep, item=i)
+                    for ind_p, p in enumerate(prediction):
+                        prediction_matrix[ind_p][i] = p
+
+                env._consumer_model.is_overriden = False
                 self.refresh()
                 self.inject_prediction(prediction)
                 self.train(start_step=timestep, start_inventory= start_inventory, last_deliveries=last_deliveries, env_not_used=False)
@@ -198,7 +206,8 @@ class DPAgent():
                 if np.any(act > 0):
                     action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
 
-                observation, reward, done, info, did_deliver = env.step(action)
+                observation, reward, done, info, did_deliver, type_ids = env.step(action)
+                curr_data = self.vectorize_order(("dummyval",type_ids))
 
                 inventory_state = observation["inventory_state"]
                 start_inventory = self.get_inv_from_inventory_state(inventory_state)
