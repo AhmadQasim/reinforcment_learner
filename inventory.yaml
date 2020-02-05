@@ -27,6 +27,5 @@ weight_list: [1000, 1000, 1000]
 episode_max_steps: 20
 top_n_items: 1
 domain_randomization: false
-top_n_items: 2
 data_path: "/home/ahmad/percibake_RL/semester-2019-2/data/restaurant-1-orders.csv"
 opening_time: "17:00"

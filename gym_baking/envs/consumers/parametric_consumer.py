@@ -76,16 +76,16 @@ class PoissonConsumerModel(BaseConsumer):
         return lambdas_list
 
     def make_orders(self, timestep):
-        poisson_outcomes = [sample_from_poisson(i) for i in self._lambdas_for_timestep(timestep)]
-        number_of_items = np.sum(poisson_outcomes)
-        items = [i for i, item_count in enumerate(poisson_outcomes) for _ in range(item_count)]
-
-        #override orders
+        # override orders
         if self.is_overriden:
             item_list = self.prediction
             number_of_item_list = [sum(lst) for lst in self.prediction]
             a = [index for index, item in enumerate(item_list[timestep]) for _ in range(item)]
-            return (number_of_item_list[timestep],a)
+            return (number_of_item_list[timestep], a)
+
+        poisson_outcomes = [sample_from_poisson(i) for i in self._lambdas_for_timestep(timestep)]
+        number_of_items = np.sum(poisson_outcomes)
+        items = [i for i, item_count in enumerate(poisson_outcomes) for _ in range(item_count)]
 
         return number_of_items, items
 

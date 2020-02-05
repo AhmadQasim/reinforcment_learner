@@ -7,15 +7,15 @@ import gym_baking.envs.utils as utils
 
 #from agents.base_agent import BaseAgent
 
-
+INVENTORY = "../inventory.yaml"
 class BaselineAgent():
     def __init__(self):
         super().__init__()
-        self.config_path = "../reinforcemnet_learner/inventory.yaml"
+        self.config_path = INVENTORY
         f = open(self.config_path, 'r')
         self.config = yaml.load(f, Loader=yaml.Loader)
 
-        self.env = gym.make("gym_baking:Inventory-v0", config_path="../reinforcemnet_learner/inventory.yaml")
+        self.env = gym.make("gym_baking:Inventory-v0", config_path=INVENTORY)
         self.observation_space = {'producer_state': {'production_queue': [], 'is_busy': False},
                                   'inventory_state': {'products': []},
                                   'consumer_state': {'order_queue': []}}
@@ -27,13 +27,13 @@ class BaselineAgent():
         self.state_shape = (self.items_count * self.feature_count,)
         self.action_shape = self.env.action_space.shape
 
-        self.max_steps_per_episode = 100
+        self.max_steps_per_episode = 20
         self.rewards = []
-        self.test_eps = 300
+        self.test_eps = 1
         self.test_rewards = []
 
-        self.min_quantity = 10
-        self.max_quantity = 30
+        self.min_quantity = 1
+        self.max_quantity = 3
 
     def take_action(self, state):
 
@@ -46,7 +46,7 @@ class BaselineAgent():
                 action[1] = self.max_quantity
 
         # take action
-        new_observation, reward, done, info = self.env.step(action)
+        new_observation, reward, done, info, _ = self.env.step(action)
 
         return new_observation, reward, done
 
@@ -58,12 +58,13 @@ class BaselineAgent():
     def test(self):
         total_mean_reward = []
         total_reward = 0
+        self.env._consumer_model.is_overriden = True
 
         for ep in range(self.test_eps):
             episode_reward = []
             self.env.reset()
             self.env.step(self.env.action_space.sample())
-            obs, reward, done, _ = self.env.step(self.env.action_space.sample())
+            obs, reward, done, bcd, asd = self.env.step(self.env.action_space.sample())
             obs = utils.observation_state_vector(obs, return_count=True, items_to_id=self.items_to_id)
 
             for j in range(self.max_steps_per_episode - 2):
@@ -76,17 +77,21 @@ class BaselineAgent():
             # episode summary
             total_reward += sum(episode_reward)
             total_mean_reward.append(total_reward / (ep + 1))
-            print("Episode : ", ep)
-            print("Episode Reward : ", sum(episode_reward))
-            print("Total Mean Reward: ", total_reward / (ep + 1))
-            print("==========================================")
+            #print("Episode : ", ep)
+            #print("Episode Reward : ", sum(episode_reward))
+            #print("Total Mean Reward: ", total_reward / (ep + 1))
+            #print("==========================================")
+            s, i = self.env._metric.get_metric(state_history=self.env.state_history, done=True)
+            print(f'score: {s} and \n info {i}')
 
-        plt.plot(list(range(self.test_eps)), total_mean_reward)
-        plt.xlabel('Episodes')
-        plt.ylabel('Reward')
-        plt.legend()
-        plt.show()
+
+        #plt.plot(list(range(self.test_eps)), total_mean_reward)
+        #plt.xlabel('Episodes')
+        #plt.ylabel('Reward')
+        #plt.legend()
+        #plt.show()
 
 
 if __name__ == "__main__":
-#    fire.Fire(BaselineAgent())
+    base_agent = BaselineAgent()
+    base_agent.test()

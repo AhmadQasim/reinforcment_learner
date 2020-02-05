@@ -78,7 +78,7 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 30]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 3]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)
@@ -251,7 +251,7 @@ class Metric:
         num_products = 0
         for key in self.product_list:
             num_sales += sum(state_history['serve_queue_'+key])
-            num_waits += state_history['order_queue_'+key][-1]
+            num_waits += sum(state_history['order_queue_'+key])
             num_products += sum(state_history['ready_queue_'+key])
             num_wastes += state_history['inventory_'+key][-1]
         

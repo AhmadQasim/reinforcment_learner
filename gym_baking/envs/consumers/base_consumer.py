@@ -37,11 +37,13 @@ class BaseConsumer():
         """
         n, type_ids = self.make_orders(timestep)
 
+        orders = []
         for i in range(n):
             order = Order(self.products[type_ids[i]]['type'])
             self._order_queue.append(order)
+            orders.append(order)
 
-        order_counter = Counter([x._item_type for x in self._order_queue])
+        order_counter = Counter([x._item_type for x in orders])
         product_counter = Counter([x._item_type for x in inventory_products])
         union_counter = order_counter & product_counter
         order_counter.subtract(union_counter)

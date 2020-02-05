@@ -11,7 +11,7 @@ import gym
 
 
 # for simplicity we assume all products have the same inventory and delivery limits
-MAXIMUM_INVENTORY = 6
+MAXIMUM_INVENTORY = 3
 MAXIMUM_DELIVERY = 3
 ADP_THRESHOLD = 1e6 # size of state space to switch adp when exceeded
 SHOULD_CHECK_FOR_ADP_THRESHOLD = False # bypasses the threshold check and does "exact dp" if True# , otherwise trains the "adp"
