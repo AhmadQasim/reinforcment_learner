@@ -14,7 +14,6 @@ dp_ar = []
 dp_or = []
 
 
-
 def worker(seed, base_dict, dp_ar_dict, dp_or_dict):
     # run baseline agent
     base_agent = BaselineAgent()
@@ -27,6 +26,7 @@ def worker(seed, base_dict, dp_ar_dict, dp_or_dict):
     # run DP+OR
     agent_test = DPAgent(config_path="./reinforcemnet_learner/inventory.yaml", loglevel=logging.CRITICAL)
     dp_or_dict[seed] = agent_test.train_with_env(test_seed=seed)
+
 
 jobs = []
 manager = multiprocessing.Manager()
@@ -45,7 +45,7 @@ for i in range(TESTS):
 print(base_dict, dp_ar_dict, dp_or_dict)
 
 with open(os.path.join(JSON_PATH, MODE + ".json"), "w") as f:
-    json.dump({"baseline": base_dict.copy(), "dp+ar": dp_ar_dict.copy()}, f, indent=4)
+    json.dump({"baseline": base_dict.copy(), "dp+ar": dp_ar_dict.copy(), "dp+or": dp_or_dict.copy()}, f, indent=4)
 
 
 
