@@ -2,11 +2,12 @@
 import gym
 import yaml
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import gym_baking.envs.utils as utils
 #from agents.base_agent import BaseAgent
 
-INVENTORY = "../inventory.yaml"
+INVENTORY = "./reinforcemnet_learner/inventory.yaml"
 class BaselineAgent():
     def __init__(self):
         super().__init__()
@@ -54,10 +55,10 @@ class BaselineAgent():
          produces whatever falls below threshold."""
         pass
 
-    def test(self):
+    def test(self, seed):
         total_mean_reward = []
         total_reward = 0
-        self.env._consumer_model.fix_seed(1)
+        self.env._consumer_model.fix_seed(seed)
 
         for ep in range(self.test_eps):
             episode_reward = []
@@ -84,6 +85,8 @@ class BaselineAgent():
             s, i = self.env._metric.get_metric(state_history=self.env.state_history, done=True, step=self.config["episode_max_steps"])
             print(f'score: {s} and \n info {i}')
 
+        return [s, i]
+
 
         #plt.plot(list(range(self.test_eps)), total_mean_reward)
         #plt.xlabel('Episodes')
@@ -94,4 +97,4 @@ class BaselineAgent():
 
 if __name__ == "__main__":
     base_agent = BaselineAgent()
-    base_agent.test()
+    base_agent.test(0)
