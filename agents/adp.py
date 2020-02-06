@@ -22,7 +22,7 @@ LEARNING_RATE = 1e-3
 NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it creates actions without any delivery with
 # this probability while creating random states to approximate the values
 
-YAML = "./reinforcemnet_learner/inventory.yaml"
+YAML = "inventory.yaml"
 class DPAgent():
     def __init__(self, config_path, loglevel=logging.WARNING):
         with open(config_path, 'r') as f:
@@ -94,7 +94,7 @@ class DPAgent():
         else:
             self.train_dp(env_not_used, start_step=start_step, start_inventory=start_inventory, start_last_delivery_step=last_delivered_step)
 
-    def get_next_action_and_inv(self, start_step=0, print_meanwhile=False):
+    def get_next_action_and_inv(self, print_meanwhile=False):
         min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
                                (self.number_of_products+1))
 
@@ -107,9 +107,9 @@ class DPAgent():
 
         total_cost = 0
         returned_act = np.zeros(self.number_of_products, dtype='int64')
-        for step in range(self.horizon-start_step):
+        for step in range(self.horizon):
             inventory, last_delivery_step = min_state[:-1], min_state[-1]
-            action_table = self.optimal_actions[step+start_step]
+            action_table = self.optimal_actions[step]
             action = action_table[min_state.tobytes()]
             if np.any(action > 0):
                 range_to_look_out = self.get_produce_time_of_delivery(action)
@@ -221,48 +221,17 @@ class DPAgent():
             # just for now
             #horizon = len(self.prediction)
             curr_data = [0 for _ in range(self.number_of_products)]
-            if test_seed:
-                env._consumer_model.fix_seed(test_seed)
-                test_samples = [self.vectorize_order(tuple) for tuple in
-                                env._consumer_model.give_all_samples(test_seed)]
-                self.inject_prediction(test_samples)
-                self.train(start_step=0, start_inventory=start_inventory, last_delivered_step=last_delivery,
-                           env_not_used=False)
+            for timestep in range(self.horizon):
+                #env.render()
+                #prediction = self.pretend_oracle(last_orders=last_delivery, time_step=timestep)
 
-                for timestep in range(self.horizon):
-                    act, inv = self.get_next_action_and_inv(timestep)
-
-                    if timestep is 0:
-                        env.add_deliveries(inv)
-                        # print(f' inv \n {inv}')
-
-                    action = np.zeros(2, dtype="int64")
-                    if np.any(act > 0):
-                        action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
-
-                    observation, reward, done, info, did_deliver, type_ids = env.step(action)
-                    curr_data = self.vectorize_order(("dummyval", type_ids))
-                    print(curr_data)
-                    inventory_state = observation["inventory_state"]
-                    start_inventory = self.get_inv_from_inventory_state(inventory_state)
-
-                    last_delivery = timestep if did_deliver else last_delivery
-
-                    # print(f' observation \n {observation}')
-                    # print(f' act \n {act}')
-                    # print(f' inventory after order \n {start_inventory}')
-                    # print(f' last_deliveries \n {last_deliveries}')
-                    s, i = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
-                    print(f'timestep {timestep}')
-                    print(f'score: {s} and \n info {i}')
-                    # print(f'{timestep}')
-                    if done:
-                        # print('Episode finished after {} timesteps'.format(timestep))
-                        break
-            else:
-                for timestep in range(self.horizon):
-                    #env.render()
-                    #prediction = self.pretend_oracle(last_orders=last_delivery, time_step=timestep)
+                if test_seed:
+                    env._consumer_model.fix_seed(test_seed)
+                    env._consumer_model.is_overriden = True
+                    test_samples = [self.vectorize_order(tuple) for tuple in
+                                    env._consumer_model.give_all_samples(test_seed)]
+                    self.inject_prediction(test_samples[-(self.horizon - timestep):])
+                else:
                     prediction_matrix = [[0 for _ in range(self.number_of_products)] for i in range(self.horizon)]
                     for i in range(self.number_of_products):
                         prediction = predictor.predict(curr_data=np.array(curr_data[i]).reshape(1, 1), pred_steps=self.horizon-timestep, item=i)
@@ -271,39 +240,41 @@ class DPAgent():
 
                     self.refresh(timestep)
                     self.inject_prediction(prediction_matrix)
-                    self.train(start_step=timestep, start_inventory=start_inventory, last_delivered_step=last_delivery,
-                               env_not_used=False)
-                    act, inv = self.get_next_action_and_inv(0)
 
-                    if timestep is 0:
-                        env.add_deliveries(inv)
-                        #print(f' inv \n {inv}')
+                self.train(start_step=timestep, start_inventory=start_inventory, last_delivered_step=last_delivery,
+                           env_not_used=False)
+                act, inv = self.get_next_action_and_inv(0)
 
-                    action = np.zeros(2, dtype="int64")
-                    if np.any(act > 0):
-                        action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
+                if timestep is 0:
+                    env.add_deliveries(inv)
+                    #print(f' inv \n {inv}')
 
-                    observation, reward, done, info, did_deliver, type_ids = env.step(action)
-                    curr_data = self.vectorize_order(("dummyval",type_ids))
-                    print(curr_data)
-                    inventory_state = observation["inventory_state"]
-                    start_inventory = self.get_inv_from_inventory_state(inventory_state)
+                action = np.zeros(2, dtype="int64")
+                if np.any(act > 0):
+                    action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
 
-                    last_delivery = timestep if did_deliver else last_delivery
+                observation, reward, done, info, did_deliver, type_ids = env.step(action)
+                curr_data = self.vectorize_order(("dummyval",type_ids))
+                print(curr_data)
+                inventory_state = observation["inventory_state"]
+                start_inventory = self.get_inv_from_inventory_state(inventory_state)
 
-                    #print(f' observation \n {observation}')
-                    #print(f' act \n {act}')
-                    #print(f' inventory after order \n {start_inventory}')
-                    #print(f' last_deliveries \n {last_deliveries}')
-                    s, info = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
-                    print(f'timestep {timestep}')
-                    print(f'score: {s} and \n info {info}')
-                    #print(f'{timestep}')
-                    if done:
-                        #print('Episode finished after {} timesteps'.format(timestep))
-                        break
-        env.close()
-        return [s, info]
+                last_delivery = timestep if did_deliver else last_delivery
+
+                #print(f' observation \n {observation}')
+                #print(f' act \n {act}')
+                #print(f' inventory after order \n {start_inventory}')
+                #print(f' last_deliveries \n {last_deliveries}')
+                s, info = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
+                print(f'timestep {timestep}')
+                print(f'score: {s} and \n info {info}')
+                #print(f'{timestep}')
+                if done:
+                    #print('Episode finished after {} timesteps'.format(timestep))
+                    break
+
+            env.close()
+            return [s, info]
 
     def train_dp(self, env_not_used=True, start_step=0, start_inventory=None, start_last_delivery_step=None):
         if len(self.states) == 0:
@@ -782,8 +753,8 @@ class DPAgent():
                     order,
                     None, step, self.lookup_table)
 
-#if __name__ == '__main__':
-    #agent = DPAgent(config_path=YAML, loglevel=logging.CRITICAL)
+if __name__ == '__main__':
+    agent = DPAgent(config_path=YAML, loglevel=logging.CRITICAL)
     #agent.train_with_env(0)
     #injection = [[1,0],[2,0]] # order 1 of first product in first time step, 2 of first product in second time step
     #injection = [[2,0],[0,0], [1,0], [2,0]] # 1 order of first product in first time step, 1 of first product in third time step and 2 of first product in last step
@@ -797,7 +768,7 @@ class DPAgent():
 
 #%%
 #agent.get_next_action_and_inv(print_meanwhile=True)
-#agent.train_with_env(test_seed=11)
+agent.train_with_env(test_seed=11)
 #print("------------print finishe------------")
 #cost = agent.cost_of_actions([])
 #print(f'total cost: {cost}')
