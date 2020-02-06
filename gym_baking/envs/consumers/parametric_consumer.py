@@ -92,6 +92,10 @@ class PoissonConsumerModel(BaseConsumer):
 
         return number_of_items, items
 
+    def give_all_samples(self, seed):
+        np.random.seed(seed)
+        return [(self.make_orders(i)) for i in range(self.maximum_time_steps)]
+
 # %%
 '''
 config = {'product_list': {"brot": {'counts': [100, 50, 0, 0]}, "pretzel": {'counts': [25, 25, 25, 0]},

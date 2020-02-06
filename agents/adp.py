@@ -209,7 +209,7 @@ class DPAgent():
     def get_inv_from_inventory_state(self, state):
         return self.vectorize_order(["dummyval", [self.index_of_product_type(product._item_type) for product in state["products"]]])
 
-    def train_with_env(self):
+    def train_with_env(self, test_seed=None):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
         env._consumer_model.fix_seed(0)
         predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=1, model_path="../saved_models")
@@ -222,18 +222,26 @@ class DPAgent():
             # just for now
             #horizon = len(self.prediction)
             curr_data = [0 for _ in range(self.number_of_products)]
-            env._consumer_model.fix_seed(1)
             for timestep in range(self.horizon):
                 #env.render()
                 #prediction = self.pretend_oracle(last_orders=last_delivery, time_step=timestep)
-                prediction_matrix = [[0 for _ in range(self.number_of_products)] for i in range(self.horizon)]
-                for i in range(self.number_of_products):
-                    prediction = predictor.predict(curr_data=np.array(curr_data[i]).reshape(1, 1), pred_steps=self.horizon-timestep, item=i)
-                    for ind_p, p in enumerate(prediction):
-                        prediction_matrix[ind_p][i] = p
 
-                self.refresh(timestep)
-                self.inject_prediction(prediction_matrix)
+                if test_seed:
+                    env._consumer_model.fix_seed(test_seed)
+                    #env._consumer_model.is_overriden = True
+                    test_samples = [self.vectorize_order(tuple) for tuple in
+                                    env._consumer_model.give_all_samples(test_seed)]
+                    self.inject_prediction(test_samples[-(self.horizon - timestep):])
+                else:
+                    prediction_matrix = [[0 for _ in range(self.number_of_products)] for i in range(self.horizon)]
+                    for i in range(self.number_of_products):
+                        prediction = predictor.predict(curr_data=np.array(curr_data[i]).reshape(1, 1), pred_steps=self.horizon-timestep, item=i)
+                        for ind_p, p in enumerate(prediction):
+                            prediction_matrix[ind_p][i] = p
+
+                    self.refresh(timestep)
+                    self.inject_prediction(prediction_matrix)
+
                 self.train(start_step=timestep, start_inventory= start_inventory, last_delivered_step=last_delivery, env_not_used=False)
                 act, inv = self.get_next_action_and_inv()
 
@@ -257,14 +265,13 @@ class DPAgent():
                 #print(f' act \n {act}')
                 #print(f' inventory after order \n {start_inventory}')
                 #print(f' last_deliveries \n {last_deliveries}')
-
+                s, i = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
+                print(f'timestep {timestep}')
+                print(f'score: {s} and \n info {i}')
                 #print(f'{timestep}')
                 if done:
                     #print('Episode finished after {} timesteps'.format(timestep))
                     break
-                s, i = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
-                print(f'timestep {timestep}')
-                print(f'score: {s} and \n info {i}')
 
         env.close()
         return
@@ -561,7 +568,7 @@ class DPAgent():
             return look_up.get(state.tobytes(), 0.)
 
     def cost_func(self, inventory, delivery, orders):
-        stock_out = np.maximum([0., 0.],orders - delivery - inventory)
+        stock_out = np.maximum(np.zeros(self.number_of_products, dtype="float32"),orders - delivery - inventory)
         logging.info('loss calculation')
         logging.info(f'orders \n {orders}')
         logging.info(f'delivery \n {delivery}')
@@ -760,7 +767,7 @@ if __name__ == '__main__':
 
 #%%
 #agent.get_next_action_and_inv(print_meanwhile=True)
-agent.train_with_env()
+agent.train_with_env(test_seed=11)
 #print("------------print finishe------------")
 #cost = agent.cost_of_actions([])
 #print(f'total cost: {cost}')

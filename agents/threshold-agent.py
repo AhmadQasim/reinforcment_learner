@@ -26,7 +26,7 @@ class BaselineAgent():
         self.state_shape = (self.items_count * self.feature_count,)
         self.action_shape = self.env.action_space.shape
 
-        self.max_steps_per_episode = 20
+        self.max_steps_per_episode = self.config["episode_max_steps"]
         self.rewards = []
         self.test_eps = 1
         self.test_rewards = []
@@ -57,7 +57,7 @@ class BaselineAgent():
     def test(self):
         total_mean_reward = []
         total_reward = 0
-        self.env._consumer_model.fix_seed()
+        self.env._consumer_model.fix_seed(1)
 
         for ep in range(self.test_eps):
             episode_reward = []
