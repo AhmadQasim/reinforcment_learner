@@ -22,10 +22,9 @@ LEARNING_RATE = 1e-3
 NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it creates actions without any delivery with
 # this probability while creating random states to approximate the values
 
-YAML = "inventory.yaml"
+YAML = "./reinforcemnet_learner/inventory.yaml"
 class DPAgent():
     def __init__(self, config_path, loglevel=logging.WARNING):
-        print(os.listdir('../'))
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)
 
@@ -209,9 +208,9 @@ class DPAgent():
     def get_inv_from_inventory_state(self, state):
         return self.vectorize_order(["dummyval", [self.index_of_product_type(product._item_type) for product in state["products"]]])
 
-    def train_with_env(self):
+    def train_with_env(self, seed):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
-        env._consumer_model.fix_seed(0)
+        env._consumer_model.fix_seed(seed)
         predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=1, model_path="../saved_models")
         for episode in range(1):
             observation = env.reset()
@@ -262,12 +261,12 @@ class DPAgent():
                 if done:
                     #print('Episode finished after {} timesteps'.format(timestep))
                     break
-                s, i = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
+                s, info = env._metric.get_metric(state_history=env.state_history, done=True, step=timestep)
                 print(f'timestep {timestep}')
-                print(f'score: {s} and \n info {i}')
+                print(f'score: {s} and \n info {info}')
 
         env.close()
-        return
+        return [s, info]
 
     def train_dp(self, env_not_used=True, start_step=0, start_inventory=None, start_last_delivery_step=None):
         if len(self.states) == 0:
@@ -748,6 +747,7 @@ class DPAgent():
 
 if __name__ == '__main__':
     agent = DPAgent(config_path=YAML, loglevel=logging.CRITICAL)
+    agent.train_with_env(0)
     #injection = [[1,0],[2,0]] # order 1 of first product in first time step, 2 of first product in second time step
     #injection = [[2,0],[0,0], [1,0], [2,0]] # 1 order of first product in first time step, 1 of first product in third time step and 2 of first product in last step
     #injection_long = [[1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0], [7,1], [2,5], [2,5], [0,0], [7,1], [1, 0], [0, 0], [1, 0], [2,5], [2,5], [0,0]]
@@ -760,7 +760,6 @@ if __name__ == '__main__':
 
 #%%
 #agent.get_next_action_and_inv(print_meanwhile=True)
-agent.train_with_env()
 #print("------------print finishe------------")
 #cost = agent.cost_of_actions([])
 #print(f'total cost: {cost}')
