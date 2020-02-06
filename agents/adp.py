@@ -243,7 +243,7 @@ class DPAgent():
 
                 self.train(start_step=timestep, start_inventory=start_inventory, last_delivered_step=last_delivery,
                            env_not_used=False)
-                act, inv = self.get_next_action_and_inv(0)
+                act, inv = self.get_next_action_and_inv()
 
                 if timestep is 0:
                     env.add_deliveries(inv)
