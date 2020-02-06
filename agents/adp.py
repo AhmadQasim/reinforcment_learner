@@ -227,7 +227,7 @@ class DPAgent():
 
                 if test_seed:
                     env._consumer_model.fix_seed(test_seed)
-                    env._consumer_model.is_overriden = True
+                    env._consumer_model.is_overriden = False
                     test_samples = [self.vectorize_order(tuple) for tuple in
                                     env._consumer_model.give_all_samples(test_seed)]
                     self.inject_prediction(test_samples[-(self.horizon - timestep):])
