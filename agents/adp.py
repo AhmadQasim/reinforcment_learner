@@ -22,7 +22,7 @@ LEARNING_RATE = 1e-3
 NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it creates actions without any delivery with
 # this probability while creating random states to approximate the values
 
-YAML = "./reinforcemnet_learner/inventory.yaml"
+YAML = "../inventory.yaml"
 class DPAgent():
     def __init__(self, config_path, loglevel=logging.WARNING):
         with open(config_path, 'r') as f:
@@ -94,7 +94,7 @@ class DPAgent():
         else:
             self.train_dp(env_not_used, start_step=start_step, start_inventory=start_inventory, start_last_delivery_step=last_delivered_step)
 
-    def get_next_action_and_inv(self, start_step=0, print_meanwhile=False):
+    def get_next_action_and_inv(self, start_step=0, print_meanwhile=False, start_inventory=None, last_delivery_step=None):
         min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
                                (self.number_of_products+1))
 
@@ -105,15 +105,21 @@ class DPAgent():
         if self.start_state is not None:
             min_state = self.start_state
 
+        if start_inventory is not None:
+            inventory = start_inventory
+            diff = start_step-last_delivery_step if last_delivery_step is not -1 else None
+            last_step_delivered = 0 if diff is None or diff >= self.maximum_produce_time else self.maximum_produce_time - diff
+            min_state = np.array(np.append(inventory, last_step_delivered), dtype="int64")
+
         total_cost = 0
         returned_act = np.zeros(self.number_of_products, dtype='int64')
-        for step in range(self.horizon-start_step):
+        for step in range(start_step, self.horizon):
             inventory, last_delivery_step = min_state[:-1], min_state[-1]
-            action_table = self.optimal_actions[step+start_step]
+            action_table = self.optimal_actions[step]
             action = action_table[min_state.tobytes()]
             if np.any(action > 0):
                 range_to_look_out = self.get_produce_time_of_delivery(action)
-                if step-range_to_look_out is 0:
+                if step-range_to_look_out is start_step:
                     returned_act = action
                     if not print_meanwhile:
                         return returned_act, first_inventory
@@ -223,29 +229,32 @@ class DPAgent():
             curr_data = [0 for _ in range(self.number_of_products)]
             if test_seed:
                 env._consumer_model.fix_seed(test_seed)
+                env._consumer_model.is_overriden = False # make true when doing test with PREDICTION in yaml
                 test_samples = [self.vectorize_order(tuple) for tuple in
                                 env._consumer_model.give_all_samples(test_seed)]
                 self.inject_prediction(test_samples)
                 self.train(start_step=0, start_inventory=start_inventory, last_delivered_step=last_delivery,
                            env_not_used=False)
-
+                start_inventory = None
+                last_delivery = -1
                 for timestep in range(self.horizon):
-                    act, inv = self.get_next_action_and_inv(timestep)
+                    act, inv = self.get_next_action_and_inv(timestep, start_inventory=start_inventory, last_delivery_step=last_delivery)
 
                     if timestep is 0:
                         env.add_deliveries(inv)
-                        # print(f' inv \n {inv}')
+                        print(f'chose to start with this inventory \n {inv}')
 
                     action = np.zeros(2, dtype="int64")
                     if np.any(act > 0):
                         action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
+                    print(f'produce action {act}')
 
                     observation, reward, done, info, did_deliver, type_ids = env.step(action)
                     curr_data = self.vectorize_order(("dummyval", type_ids))
-                    print(curr_data)
+                    print(f'orders {curr_data}')
                     inventory_state = observation["inventory_state"]
                     start_inventory = self.get_inv_from_inventory_state(inventory_state)
-
+                    print(f'inventory {start_inventory}')
                     last_delivery = timestep if did_deliver else last_delivery
 
                     # print(f' observation \n {observation}')
@@ -277,17 +286,19 @@ class DPAgent():
 
                     if timestep is 0:
                         env.add_deliveries(inv)
-                        #print(f' inv \n {inv}')
+                        print(f'chose to start with this inventory \n {inv}')
 
                     action = np.zeros(2, dtype="int64")
                     if np.any(act > 0):
                         action[0], action[1] = np.argwhere(act > 0).item(), act[act > 0]
 
+                    print(f'produce action {action}')
                     observation, reward, done, info, did_deliver, type_ids = env.step(action)
                     curr_data = self.vectorize_order(("dummyval",type_ids))
-                    print(curr_data)
+                    print(f'orders {curr_data}')
                     inventory_state = observation["inventory_state"]
                     start_inventory = self.get_inv_from_inventory_state(inventory_state)
+                    print(f'inventory after orders served {start_inventory}')
 
                     last_delivery = timestep if did_deliver else last_delivery
 
