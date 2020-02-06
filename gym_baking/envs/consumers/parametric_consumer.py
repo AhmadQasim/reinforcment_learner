@@ -61,6 +61,9 @@ class PoissonConsumerModel(BaseConsumer):
         self.is_overriden = False
         self.prediction = config['PREDICTION']
 
+    def fix_seed(self):
+        np.random.seed(0)
+
     def _lambdas_for_timestep(self, timestep):
         lambda_vals = []
         for ind, lambdas in enumerate(self.lambdas_list):
