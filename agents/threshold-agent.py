@@ -4,7 +4,6 @@ import yaml
 import numpy as np
 import matplotlib.pyplot as plt
 import gym_baking.envs.utils as utils
-
 #from agents.base_agent import BaseAgent
 
 INVENTORY = "../inventory.yaml"
@@ -31,9 +30,9 @@ class BaselineAgent():
         self.rewards = []
         self.test_eps = 1
         self.test_rewards = []
-
-        self.min_quantity = 4
-        self.max_quantity = 5
+        self.threshold = self.config["maximum_delivery"]
+        self.max_quantity = self.config["maximum_inventory"]
+        self.min_quantity = self.max_quantity - self.threshold + 1
 
     def take_action(self, state):
 
@@ -43,7 +42,7 @@ class BaselineAgent():
         for item in range(self.items_count):
             if item not in state[1].keys() or state[1][item][0] < self.min_quantity:
                 action[0] = item
-                action[1] = 2
+                action[1] = self.threshold
 
         # take action
         new_observation, reward, done, info, _, _ = self.env.step(action)
@@ -58,7 +57,7 @@ class BaselineAgent():
     def test(self):
         total_mean_reward = []
         total_reward = 0
-        self.env._consumer_model.is_overriden = False
+        self.env._consumer_model.fix_seed()
 
         for ep in range(self.test_eps):
             episode_reward = []
@@ -73,6 +72,7 @@ class BaselineAgent():
 
                 reward = reward * 1000
                 episode_reward.append(reward)
+                print(obs)
 
             # episode summary
             total_reward += sum(episode_reward)
@@ -81,7 +81,7 @@ class BaselineAgent():
             #print("Episode Reward : ", sum(episode_reward))
             #print("Total Mean Reward: ", total_reward / (ep + 1))
             #print("==========================================")
-            s, i = self.env._metric.get_metric(state_history=self.env.state_history, done=True)
+            s, i = self.env._metric.get_metric(state_history=self.env.state_history, done=True, step=self.config["episode_max_steps"])
             print(f'score: {s} and \n info {i}')
 
 

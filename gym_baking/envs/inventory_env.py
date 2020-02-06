@@ -78,7 +78,7 @@ class InventoryManagerEnv(gym.Env):
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, 2]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, config['maximum_delivery']]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)
@@ -160,7 +160,7 @@ class InventoryManagerEnv(gym.Env):
 
         done = self.timestep >= self.episode_max_steps
 
-        reward, metric_info = self._metric.get_metric(self.state_history, done)
+        reward, metric_info = self._metric.get_metric(self.state_history, done, self.timestep)
 
         return observation, reward, done, metric_info, did_deliver, type_ids
 
@@ -241,28 +241,32 @@ class Metric:
         self.config = config
         self.product_list = [x["type"] for x in self.config.values()]
 
-    def get_metric(self, state_history, done):
+    def get_metric(self, state_history, done, step):
         info = {}
         if not done:
             return 0, info
         num_sales = 0
-        num_waits = 0
+        num_misses = 0
         num_wastes = 0
         num_products = 0
+        waites = 0
         for key in self.product_list:
             num_sales += sum(state_history['serve_queue_'+key])
-            num_waits += sum(state_history['order_queue_'+key])
             num_products += sum(state_history['ready_queue_'+key])
             num_wastes += state_history['inventory_'+key][-1]
-        
-        sale_wait_ratio = num_sales/(num_sales + num_waits) if num_sales + num_waits>0 else 0
+            num_misses += sum(state_history['order_queue_' + key])
+            waites += sum(state_history['inventory_'+key])
+
+        sale_wait_ratio = num_sales/(num_sales + num_misses) if num_sales + num_misses>0 else 0
         product_waste_ratio = num_products/(num_products+num_wastes) if num_products+num_wastes>0 else 0
-        score = (sale_wait_ratio + product_waste_ratio)/2
+        product_wait_ratio = waites/step if step > 0 else waites
+        score = sale_wait_ratio - product_wait_ratio
 
         info["sales"] = num_sales
-        info["waits"] = num_waits
+        info["missed customer"] = num_misses
         info["products"] = num_products
-        info["wastes"] = num_wastes
-        info["sale_wait_ratio"] = sale_wait_ratio
+        info["product waitings"] = waites
+        info["sale_miss_ratio"] = sale_wait_ratio
         info["product_waste_ratio"] = product_waste_ratio
+        info["product_wait_ratio"] = product_wait_ratio
         return score, info
