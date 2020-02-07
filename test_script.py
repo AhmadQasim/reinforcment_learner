@@ -5,8 +5,8 @@ import json
 import os
 import multiprocessing
 
-MODE = "in-d"
-TESTS = 2
+MODE = "out-3"
+TESTS = 10
 JSON_PATH = "./reinforcemnet_learner/result"
 
 base_results = []
