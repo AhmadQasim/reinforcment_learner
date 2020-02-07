@@ -43,7 +43,6 @@ class AutoRegressiveDemandPredictor:
         :return: predictions, numpy array
         """
         predictions = self.ar.predict_next_n(curr_data=curr_data, pred_steps=pred_steps, item=item)
-        self.ar.save_models()
 
         return predictions
 
