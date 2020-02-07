@@ -30,6 +30,7 @@ class DPAgent():
 
         self.products = config['product_list']
         self.horizon = config['episode_max_steps']
+        self.seeds = config['seeds']
         self.items = self.products.items()
         self.produce_times = list(map(lambda x: x[1]["production_time"], self.items))
         self.maximum_produce_time = max(self.produce_times)
@@ -292,6 +293,9 @@ class DPAgent():
                 elif self.maximum_produce_time - last_delivery_time_step < self.produce_times[prod_index]:
                     # do not produce anything if we are not able to do in time...
                     act = np.zeros(self.number_of_products, dtype="int64")
+                elif step < self.produce_times[prod_index]:
+                    act = np.zeros(self.number_of_products, dtype="int64")
+
 
                 new_inventory_temp = np.maximum(np.zeros_like(inventory, dtype="int64"), (inventory + act - orders))
                 new_inventory_temp = np.minimum(np.ones_like(inventory, dtype="int64")*MAXIMUM_INVENTORY, new_inventory_temp)
@@ -491,12 +495,18 @@ class DPAgent():
         min_state = np.reshape(np.frombuffer(min(self.lookup_table, key=self.lookup_table.get), dtype="int64"),
                                (self.number_of_products, self.maximum_produce_time))
 
+        total_waitings = 0
+        servings = 0
+        missings = 0
+        orders = 0
+
+
         for step in range(self.horizon):
             inventory, delivery_matrix = min_state[:, 0], min_state[:, 1:]
             action_table = self.optimal_actions[step]
             action = action_table[min_state.tobytes()]
-            logging.critical(f'step {step}')
-            logging.critical(f'inventory \n {inventory}')
+            logging.error(f'step {step}')
+            logging.error(f'inventory \n {inventory}')
             logging.error(f'latest delivery \n {delivery_matrix}')
             order = None
             if len(self._injected_orders) == 0:
@@ -504,10 +514,24 @@ class DPAgent():
             else:
                 order = self.vectorize_order(self.make_orders(step, train=False))
 
-            logging.critical(f'order \n {order}')
-            logging.critical(f'delivery \n {action}')
+
+            inventory_net = np.maximum([0., 0.],inventory-order+action)
+            total_waitings += sum((inventory_net).tolist())
+            servings += sum(action.tolist())
+            missing = np.maximum([0., 0.],order-action-inventory)
+            missings += sum(missing.tolist())
+
+
+            logging.error(f'order \n {order}')
+            logging.error(f'delivery \n {action}')
+
             cost, act, min_state = self.take_action(min_state, order, 0, action, step)
 
+        mean_waiting = total_waitings/self.horizon
+        miss_ratio = servings/(missings + servings)
+        logging.error(f'product_wait_ratio \n {mean_waiting}')
+        logging.error(f'sale_miss_ratio \n {miss_ratio}')
+        return mean_waiting, miss_ratio
 
 
     def print(self):
@@ -557,15 +581,22 @@ class DPAgent():
                     None, step, self.lookup_table)
 
 if __name__ == '__main__':
-    agent = DPAgent(config_path="../inventory.yaml", loglevel=logging.CRITICAL)
     #injection = [[1,0],[2,0]] # order 1 of first product in first time step, 2 of first product in second time step
-    injection = [[1,0],[0,0], [1,0], [2,0]] # order 1 of first product in first time step, 1 of first product in third time step and 2 of first product in last step
-    agent.inject_prophecy(injection)
-    agent.train()
-    #cost = agent.cost_of_actions([[2, 0], [0, 0], [1, 0], [0, 0]])
+    result_dic = {}
+    with open("../inventory.yaml", 'r') as f:
+        config = yaml.load(f, Loader=yaml.Loader)
+
+    seeds = config['seeds']
+    for ind, inj in enumerate(seeds):
+        agent = DPAgent(config_path="../inventory.yaml", loglevel=logging.CRITICAL)
+        agent.inject_prophecy(inj)
+        agent.train()
+        mean_waiting, miss_ratio = agent.print_optimal()
+        result_dic[f"seed:{ind}"] = (f"miss_ratio: {miss_ratio}", f"mean_waiting {mean_waiting}")
+
+    print(result_dic)
 
 #%%
-agent.print_optimal()
 #print("------------print finishe------------")
 #cost = agent.cost_of_actions([])
 #print(f'total cost: {cost}')
