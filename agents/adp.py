@@ -587,12 +587,19 @@ if __name__ == '__main__':
         config = yaml.load(f, Loader=yaml.Loader)
 
     seeds = config['seeds']
+    total_mean_waiting = 0
+    total_miss_ratio = 0
     for ind, inj in enumerate(seeds):
         agent = DPAgent(config_path="../inventory.yaml", loglevel=logging.CRITICAL)
         agent.inject_prophecy(inj)
         agent.train()
         mean_waiting, miss_ratio = agent.print_optimal()
-        result_dic[f"seed:{ind}"] = (f"miss_ratio: {miss_ratio}", f"mean_waiting {mean_waiting}")
+        total_mean_waiting += mean_waiting
+        total_miss_ratio += miss_ratio
+        result_dic[f"seed:{ind}"] = (f"miss_ratio: {miss_ratio}", f"mean_waiting: {mean_waiting}")
+
+    result_dic[f"average_miss_ratio_inv_{MAXIMUM_INVENTORY}_del_{MAXIMUM_DELIVERY}"] = total_miss_ratio/len(seeds)
+    result_dic[f"average_mean_waiting_inv_{MAXIMUM_INVENTORY}_del_{MAXIMUM_DELIVERY}"] = total_mean_waiting/len(seeds)
 
     print(result_dic)
 
