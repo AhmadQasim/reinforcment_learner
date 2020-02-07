@@ -211,7 +211,7 @@ class DPAgent():
     def train_with_env(self, seed=None, test_seed=None):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
         env._consumer_model.fix_seed(seed)
-        predictor = AutoRegressiveDemandPredictor(config_path=YAML, steps=self.horizon, days=10, bins_size=1, model_path="../saved_models")
+        predictor = AutoRegressiveDemandPredictor(config_path=YAML, seed=seed, steps=self.horizon, days=10, bins_size=1, model_path="./models/ar_model"+str(seed), load_model=True)
         for episode in range(1):
             observation = env.reset()
             reward = 0

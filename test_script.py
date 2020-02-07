@@ -6,7 +6,7 @@ import os
 import multiprocessing
 
 MODE = "in-d"
-TESTS = 2
+TESTS = 10
 JSON_PATH = "./reinforcemnet_learner/result"
 
 base_results = []
@@ -24,8 +24,8 @@ def worker(seed, base_dict, dp_ar_dict, dp_or_dict):
     dp_ar_dict[seed] = agent.train_with_env(seed=seed)
 
     # run DP+OR
-    agent_test = DPAgent(config_path="./reinforcemnet_learner/inventory.yaml", loglevel=logging.CRITICAL)
-    dp_or_dict[seed] = agent_test.train_with_env(test_seed=seed)
+    # agent_test = DPAgent(config_path="./reinforcemnet_learner/inventory.yaml", loglevel=logging.CRITICAL)
+    # dp_or_dict[seed] = agent_test.train_with_env(test_seed=seed)
 
 
 jobs = []
@@ -71,8 +71,8 @@ for i in range(TESTS):
     dp_ar_sale_ratio.append(data["dp+ar"][str(i)][1]["sale_miss_ratio"])
     dp_ar_prod_ratio.append(data["dp+ar"][str(i)][1]["product_wait_ratio"])
 
-    dp_or_sale_ratio.append(data["dp+or"][str(i)][1]["sale_miss_ratio"])
-    dp_or_prod_ratio.append(data["dp+or"][str(i)][1]["product_wait_ratio"])
+    # dp_or_sale_ratio.append(data["dp+or"][str(i)][1]["sale_miss_ratio"])
+    # dp_or_prod_ratio.append(data["dp+or"][str(i)][1]["product_wait_ratio"])
 
 print(f"Baseline average sales ratio: {sum(baseline_sale_ratio)/len(baseline_sale_ratio)}")
 print(f"Baseline average prod ratio: {sum(baseline_prod_ratio)/len(baseline_prod_ratio)}")
@@ -80,5 +80,5 @@ print(f"Baseline average prod ratio: {sum(baseline_prod_ratio)/len(baseline_prod
 print(f"dp+ar average sales ratio: {sum(dp_ar_sale_ratio)/len(dp_ar_sale_ratio)}")
 print(f"dp+ar average prod ratio: {sum(dp_ar_prod_ratio)/len(dp_ar_prod_ratio)}")
 
-print(f"dp+or average sales ratio: {sum(dp_or_sale_ratio)/len(dp_or_sale_ratio)}")
-print(f"dp+or average prod ratio: {sum(dp_or_prod_ratio)/len(dp_or_prod_ratio)}")
+# print(f"dp+or average sales ratio: {sum(dp_or_sale_ratio)/len(dp_or_sale_ratio)}")
+# print(f"dp+or average prod ratio: {sum(dp_or_prod_ratio)/len(dp_or_prod_ratio)}")

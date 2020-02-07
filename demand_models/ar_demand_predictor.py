@@ -7,6 +7,7 @@ class AutoRegressiveDemandPredictor:
     def __init__(self,
                  config_path,
                  steps,
+                 seed,
                  days,
                  bins_size,
                  model_path,
@@ -24,10 +25,10 @@ class AutoRegressiveDemandPredictor:
         self.model_path = model_path
 
         if load_model:
-            self.ar = AutoRegression(model_path, config_path, steps, days, bins_size)
+            self.ar = AutoRegression(model_path, config_path, seed, steps, days, bins_size)
             self.ar.load_models()
         else:
-            self.ar = AutoRegression(model_path, config_path, steps, days, bins_size)
+            self.ar = AutoRegression(model_path, config_path, seed, steps, days, bins_size)
             self.ar.sample_data()
             self.ar.prepare_data()
             self.ar.train_ar()
@@ -45,3 +46,10 @@ class AutoRegressiveDemandPredictor:
         self.ar.save_models()
 
         return predictions
+
+
+if __name__ == "__main__":
+    for i in range(10):
+        predictor = AutoRegressiveDemandPredictor(config_path="./inventory.yaml", seed=i, steps=20, days=10, bins_size=1,
+                                                  model_path="./models/ar_model_"+str(i))
+        print("Model: ", i)
