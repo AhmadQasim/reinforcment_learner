@@ -23,7 +23,7 @@ NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it crea
 # this probability while creating random states to approximate the values
 
 class DPAgent():
-    def __init__(self, config_path, loglevel=logging.WARNING):
+    def __init__(self, config_path, loglevel=logging.CRITICAL):
 
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)

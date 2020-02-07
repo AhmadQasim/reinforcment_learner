@@ -69,11 +69,24 @@ class PoissonConsumerModel(BaseConsumer):
             lambdas_list.append([count * self.numbers_of_dilation[ind] / self.maximum_time_steps for count in counts])
         return lambdas_list
 
-    def make_orders(self, inventory_products, order_queue, timestep):
+    def make_orders(self, timestep, inventory_products=None, order_queue=None):
         poisson_outcomes = [sample_from_poisson(i) for i in self._lambdas_for_timestep(timestep)]
         number_of_items = np.sum(poisson_outcomes)
         items = [i for i, item_count in enumerate(poisson_outcomes) for _ in range(item_count)]
         return number_of_items, items
+
+    def fix_seed(self, seed):
+        np.random.seed(seed)
+
+    def set_counts(self, counts_list):
+        self.counts_list = counts_list
+        self.numbers_of_dilation = [float(len(counts)) for counts in counts_list]
+        self.lambdas_list = self._get_lambdas_list(counts_list)
+
+    def give_all_samples(self, seed):
+        np.random.seed(seed)
+        return [(self.make_orders(i)) for i in range(self.maximum_time_steps)]
+
 
 # %%
 '''
