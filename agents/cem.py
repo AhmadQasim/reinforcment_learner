@@ -44,6 +44,7 @@ def do_rollout(agent, env, num_steps, render=False, verbose=False):
     for t in range(num_steps):
         if render:
             env.render()
+        print(ob)
         a = agent.act(ob)
         (ob, reward, done, _info) = env.step(a)
         total_rew += reward
@@ -68,7 +69,7 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     if 'Inventory-v0' in args.target:
-        env = gym.make("gym_baking:Inventory-v0", config_path="../inventory.yaml")
+        env = gym.make("gym_baking:Inventory-v0", config_path="inventory.yaml")
     else:
         env = gym.make(args.target)
     # env.seed(1)

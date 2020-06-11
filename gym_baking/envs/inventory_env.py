@@ -1,5 +1,4 @@
 from collections import Counter
-import uuid
 import yaml
 import numpy as np
 import gym
@@ -7,67 +6,20 @@ from gym import spaces
 import matplotlib.pyplot as plt
 from gym.utils import seeding
 
-from gym_baking.envs.consumers.regression_consumer import RegressionConsumer as Consumer
+from gym_baking.envs.inventory import Inventory
+from gym_baking.envs.product_item import ProductItem
+from gym_baking.envs.consumers.parametric_consumer import PoissonConsumerModel as Consumer
 
-class ProductItem():
-    def __init__(self, item_type, production_time, expire_time):
-        self._id = uuid.uuid1()
-        self._item_type = item_type
-        # how long it takes to produce
-        self._production_time = production_time
-
-        # how long the product stays fresh
-        self._expire_time = expire_time
-
-        # age of product, if negative it is still being produced
-        self.age = -production_time
-    
-    def is_done(self):
-        return self.age > 0
-
-    def is_fresh(self):
-        return self.age < self._expire_time
-
-    def step(self):
-        self.age += 1
-
-
-class Inventory():
-    def __init__(self):
-        self._products = []
-        self.state = {'products': self._products}
-
-    def reset(self):
-        self._products.clear()
-        return self.get_state()
-
-    def add(self, products):
-        for item in products:
-            self._products.append(item)
-        
-    def take(self, products):
-        for item in products:
-            self._products.remove(item)
-
-    def get_state(self):
-        self.state["products"] = self._products.copy()
-        return self.state
-
-    def step(self):
-        for item in self._products:
-            item.step()
-
-
-class ProducerModel():
+class ProducerModel:
     def __init__(self, config):
         self.config = config
         self._production_queue = []
-        self.state = {}
+        self.state = dict()
         self.state["production_queue"] = []
         self.state["is_busy"] = self.is_busy()
 
     def is_busy(self):
-        return len(self._production_queue)>0
+        return len(self._production_queue) > 0
 
     def _is_all_ready(self):
         return all([x.is_done() for x in self._production_queue])
@@ -75,6 +27,13 @@ class ProducerModel():
     def reset(self):
         self._production_queue.clear()
         return self.get_state()
+
+    def get_product(self, age, type):
+        item = ProductItem(
+            self.config[type]["type"],
+            -1,
+            self.config[type]["expire_time"])
+        return item
 
     def get_state(self):
         self.state["production_queue"] = self._production_queue.copy()
@@ -95,7 +54,7 @@ class ProducerModel():
         for i in range(num_product):
             item = ProductItem(
                 self.config[product_type]["type"],
-                self.config[product_type]["production_time"], 
+                self.config[product_type]["production_time"]-1,
                 self.config[product_type]["expire_time"])
             self._production_queue.append(item)
         
@@ -111,14 +70,15 @@ class InventoryManagerEnv(gym.Env):
     def __init__(self, config_path):
         with open(config_path, 'r') as f:
             config = yaml.load(f, Loader=yaml.Loader)
-        
+
+        self.config = config
         self.products = config['product_list']
         self.episode_max_steps = config['episode_max_steps']
         self._validate_config(self.products)
         self.product_list = [x['type'] for x in self.products.values()]
 
         num_types = len(self.products)
-        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1,30]), dtype=np.int64)
+        self.action_space = spaces.Box(low=np.array([0, 0]), high=np.array([num_types-1, config['maximum_delivery']]), dtype=np.int64)
         self.observed_product = self.product_list
 
         self._producer_model = ProducerModel(self.products)
@@ -132,10 +92,22 @@ class InventoryManagerEnv(gym.Env):
 
         self.state_history = {}
         self._metric = Metric(self.products)
+        self.is_first_delivery_injected = False
     
     def seed(self, seed=None):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
+
+    def add_deliveries(self, deliveries: np.ndarray):
+        if not self.is_first_delivery_injected:
+            ready_products = []
+            for ind, count in enumerate(deliveries):
+                for i in range(count):
+                    item = self._producer_model.get_product(age=-1, type=ind)
+                    ready_products.append(item)
+
+            self._inventory.add(ready_products)
+            self.is_first_delivery_injected = True
 
     def reset(self):
         self.timestep = 0
@@ -157,14 +129,19 @@ class InventoryManagerEnv(gym.Env):
     def step(self, action):
         assert self.action_space.contains(action), "invalid action {}".format(action)
         self.act = action
- 
+
         ready_products = self._producer_model.get_ready_products()
+        did_start = self._producer_model.start_producing(action[0], action[1])
+        self._producer_model.step()
+        did_deliver = True if len(ready_products) is not 0 else False
+        if not did_start and did_deliver:
+            self._producer_model.start_producing(action[0], action[1])
+            self._producer_model.step()
+
         self._inventory.add(ready_products)
         curr_products = self._inventory.get_state()["products"]
-        taken_products = self._consumer_model._serve_orders(curr_products, self.timestep)
+        taken_products, type_ids = self._consumer_model._serve_orders(curr_products, self.timestep)
         self._inventory.take(taken_products)
-        self._producer_model.start_producing(action[0], action[1])
-        self._producer_model.step()
         self._consumer_model.step()
         self._inventory.step()
 
@@ -180,12 +157,12 @@ class InventoryManagerEnv(gym.Env):
         self.timestep += 1
         
         observation = {k:self.state[k] for k in ["producer_state", "inventory_state", "consumer_state"]}
-        
-        done = self.timestep>self.episode_max_steps
 
-        reward, metric_info = self._metric.get_metric(self.state_history, done)
+        done = self.timestep >= self.episode_max_steps
 
-        return observation, reward, done, metric_info
+        reward, metric_info = self._metric.get_metric(self.state_history, done, self.timestep)
+
+        return observation, reward, done, metric_info, did_deliver, type_ids
 
     def render(self, mode='human', close=False):
         if not self.state_history:
@@ -221,7 +198,6 @@ class InventoryManagerEnv(gym.Env):
             self.axes[3].plot(self.state_history["serve_queue_"+key], label = 'serve_queue_'+key)
         self.axes[3].legend(loc="upper right")
         self.axes[3].set_title("consumer model")
-
         plt.subplots_adjust(hspace=0.3)
         plt.draw()
         plt.pause(0.001)
@@ -260,33 +236,37 @@ class InventoryManagerEnv(gym.Env):
             self.axes = None
 
 
-class Metric():
+class Metric:
     def __init__(self, config):
         self.config = config
         self.product_list = [x["type"] for x in self.config.values()]
 
-    def get_metric(self, state_history, done):
+    def get_metric(self, state_history, done, step):
         info = {}
         if not done:
             return 0, info
         num_sales = 0
-        num_waits = 0
+        num_misses = 0
         num_wastes = 0
         num_products = 0
+        waites = 0
         for key in self.product_list:
             num_sales += sum(state_history['serve_queue_'+key])
-            num_waits += state_history['order_queue_'+key][-1]
             num_products += sum(state_history['ready_queue_'+key])
             num_wastes += state_history['inventory_'+key][-1]
-        
-        sale_wait_ratio = num_sales/(num_sales + num_waits) if num_sales + num_waits>0 else 0
+            num_misses += sum(state_history['order_queue_' + key])
+            waites += sum(state_history['inventory_'+key])
+
+        sale_wait_ratio = num_sales/(num_sales + num_misses) if num_sales + num_misses>0 else 0
         product_waste_ratio = num_products/(num_products+num_wastes) if num_products+num_wastes>0 else 0
-        score = (sale_wait_ratio + product_waste_ratio)/2
+        product_wait_ratio = waites/step if step > 0 else waites
+        score = sale_wait_ratio - product_wait_ratio
 
         info["sales"] = num_sales
-        info["waits"] = num_waits
+        info["missed customer"] = num_misses
         info["products"] = num_products
-        info["wastes"] = num_wastes
-        info["sale_wait_ratio"] = sale_wait_ratio
+        info["product waitings"] = waites
+        info["sale_miss_ratio"] = sale_wait_ratio
         info["product_waste_ratio"] = product_waste_ratio
+        info["product_wait_ratio"] = product_wait_ratio
         return score, info

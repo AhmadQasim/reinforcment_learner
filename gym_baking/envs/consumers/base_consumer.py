@@ -1,14 +1,18 @@
 from collections import Counter
 from gym_baking.envs.order import Order
+import numpy as np
 
 
 class BaseConsumer():
     def __init__(self, config):
         self.config = config
         self.products = config['product_list']
+        self.domain_randomization = config['domain_randomization']
         self._order_queue = []
         self.state = {}
         self.state["order_queue"] = []
+
+        #self.dummy_data = np.load('../reinforcemnet_learner/consumer_demand.npy')
 
     def reset(self):
         self._order_queue.clear()
@@ -31,13 +35,15 @@ class BaseConsumer():
         """
         split orders and available, remove orders from the order queue
         """
-        n, type_ids = self.make_orders(inventory_products, self._order_queue, timestep)
+        n, type_ids = self.make_orders(timestep)
 
+        orders = []
         for i in range(n):
             order = Order(self.products[type_ids[i]]['type'])
             self._order_queue.append(order)
+            orders.append(order)
 
-        order_counter = Counter([x._item_type for x in self._order_queue])
+        order_counter = Counter([x._item_type for x in orders])
         product_counter = Counter([x._item_type for x in inventory_products])
         union_counter = order_counter & product_counter
         order_counter.subtract(union_counter)
@@ -62,7 +68,7 @@ class BaseConsumer():
         for item_type, num in union_counter.items():
             serve_queue += inventory_dict.get(item_type, [])[:num]
 
-        return serve_queue
+        return serve_queue, type_ids
 
     def step(self):
         for order in self._order_queue:
