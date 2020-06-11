@@ -48,7 +48,7 @@ class AutoRegressiveDemandPredictor:
 
 
 if __name__ == "__main__":
-    for i in range(10):
+    for i in range(10, 20):
         predictor = AutoRegressiveDemandPredictor(config_path="./inventory.yaml", seed=i, steps=20, days=10, bins_size=1,
                                                   model_path="./models/ar_model_"+str(i))
         print("Model: ", i)

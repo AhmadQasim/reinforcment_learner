@@ -5,8 +5,8 @@ import json
 import os
 import multiprocessing
 
-MODE = "out-3"
-TESTS = 10
+MODE = "out-1_20"
+TESTS = 20
 JSON_PATH = "./reinforcemnet_learner/result"
 
 base_results = []
@@ -64,7 +64,7 @@ dp_or_prod_ratio = []
 
 print(data)
 
-for i in range(TESTS):
+for i in range(10, TESTS):
     baseline_sale_ratio.append(data["baseline"][str(i)][1]["sale_miss_ratio"])
     baseline_prod_ratio.append(data["baseline"][str(i)][1]["product_wait_ratio"])
 

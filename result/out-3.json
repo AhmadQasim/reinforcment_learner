@@ -1,0 +1,247 @@
+{
+    "baseline": {
+        "0": [
+            -5.54622641509434,
+            {
+                "sales": 64,
+                "missed customer": 42,
+                "products": 64,
+                "product waitings": 123,
+                "sale_miss_ratio": 0.6037735849056604,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 6.15
+            }
+        ],
+        "1": [
+            -5.201960784313726,
+            {
+                "sales": 61,
+                "missed customer": 41,
+                "products": 62,
+                "product waitings": 116,
+                "sale_miss_ratio": 0.5980392156862745,
+                "product_waste_ratio": 0.9841269841269841,
+                "product_wait_ratio": 5.8
+            }
+        ],
+        "2": [
+            -5.837096774193548,
+            {
+                "sales": 57,
+                "missed customer": 36,
+                "products": 69,
+                "product waitings": 129,
+                "sale_miss_ratio": 0.6129032258064516,
+                "product_waste_ratio": 0.8518518518518519,
+                "product_wait_ratio": 6.45
+            }
+        ],
+        "4": [
+            -4.552173913043478,
+            {
+                "sales": 63,
+                "missed customer": 52,
+                "products": 66,
+                "product waitings": 102,
+                "sale_miss_ratio": 0.5478260869565217,
+                "product_waste_ratio": 0.9565217391304348,
+                "product_wait_ratio": 5.1
+            }
+        ],
+        "8": [
+            -7.309183673469388,
+            {
+                "sales": 53,
+                "missed customer": 45,
+                "products": 63,
+                "product waitings": 157,
+                "sale_miss_ratio": 0.5408163265306123,
+                "product_waste_ratio": 0.863013698630137,
+                "product_wait_ratio": 7.85
+            }
+        ],
+        "5": [
+            -5.851785714285715,
+            {
+                "sales": 67,
+                "missed customer": 45,
+                "products": 67,
+                "product waitings": 129,
+                "sale_miss_ratio": 0.5982142857142857,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 6.45
+            }
+        ],
+        "6": [
+            -6.93298969072165,
+            {
+                "sales": 55,
+                "missed customer": 42,
+                "products": 63,
+                "product waitings": 150,
+                "sale_miss_ratio": 0.5670103092783505,
+                "product_waste_ratio": 0.8873239436619719,
+                "product_wait_ratio": 7.5
+            }
+        ],
+        "7": [
+            -5.739252336448598,
+            {
+                "sales": 60,
+                "missed customer": 47,
+                "products": 65,
+                "product waitings": 126,
+                "sale_miss_ratio": 0.5607476635514018,
+                "product_waste_ratio": 0.9285714285714286,
+                "product_wait_ratio": 6.3
+            }
+        ],
+        "9": [
+            -5.582978723404255,
+            {
+                "sales": 58,
+                "missed customer": 36,
+                "products": 63,
+                "product waitings": 124,
+                "sale_miss_ratio": 0.6170212765957447,
+                "product_waste_ratio": 0.9264705882352942,
+                "product_wait_ratio": 6.2
+            }
+        ],
+        "3": [
+            -5.878947368421053,
+            {
+                "sales": 59,
+                "missed customer": 36,
+                "products": 64,
+                "product waitings": 130,
+                "sale_miss_ratio": 0.6210526315789474,
+                "product_waste_ratio": 0.927536231884058,
+                "product_wait_ratio": 6.5
+            }
+        ]
+    },
+    "dp+ar": {
+        "7": [
+            -1.9060887512899898,
+            {
+                "sales": 74,
+                "missed customer": 28,
+                "products": 66,
+                "product waitings": 50,
+                "sale_miss_ratio": 0.7254901960784313,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 2.6315789473684212
+            }
+        ],
+        "2": [
+            -4.341666666666667,
+            {
+                "sales": 79,
+                "missed customer": 41,
+                "products": 68,
+                "product waitings": 95,
+                "sale_miss_ratio": 0.6583333333333333,
+                "product_waste_ratio": 0.9855072463768116,
+                "product_wait_ratio": 5.0
+            }
+        ],
+        "1": [
+            -2.9202861522738885,
+            {
+                "sales": 57,
+                "missed customer": 46,
+                "products": 47,
+                "product waitings": 66,
+                "sale_miss_ratio": 0.5533980582524272,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 3.473684210526316
+            }
+        ],
+        "5": [
+            -4.891138101664418,
+            {
+                "sales": 62,
+                "missed customer": 55,
+                "products": 52,
+                "product waitings": 103,
+                "sale_miss_ratio": 0.5299145299145299,
+                "product_waste_ratio": 0.9454545454545454,
+                "product_wait_ratio": 5.421052631578948
+            }
+        ],
+        "8": [
+            -3.3143796992481205,
+            {
+                "sales": 65,
+                "missed customer": 47,
+                "products": 53,
+                "product waitings": 74,
+                "sale_miss_ratio": 0.5803571428571429,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 3.8947368421052633
+            }
+        ],
+        "0": [
+            -1.1172813924575218,
+            {
+                "sales": 72,
+                "missed customer": 55,
+                "products": 57,
+                "product waitings": 32,
+                "sale_miss_ratio": 0.5669291338582677,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 1.6842105263157894
+            }
+        ],
+        "6": [
+            -2.335692171605484,
+            {
+                "sales": 54,
+                "missed customer": 65,
+                "products": 46,
+                "product waitings": 53,
+                "sale_miss_ratio": 0.453781512605042,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 2.789473684210526
+            }
+        ],
+        "3": [
+            -3.513569078947368,
+            {
+                "sales": 69,
+                "missed customer": 59,
+                "products": 54,
+                "product waitings": 77,
+                "sale_miss_ratio": 0.5390625,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 4.052631578947368
+            }
+        ],
+        "9": [
+            -3.6852527357998954,
+            {
+                "sales": 69,
+                "missed customer": 32,
+                "products": 59,
+                "product waitings": 83,
+                "sale_miss_ratio": 0.6831683168316832,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 4.368421052631579
+            }
+        ],
+        "4": [
+            -2.817298022125377,
+            {
+                "sales": 70,
+                "missed customer": 87,
+                "products": 62,
+                "product waitings": 62,
+                "sale_miss_ratio": 0.445859872611465,
+                "product_waste_ratio": 1.0,
+                "product_wait_ratio": 3.263157894736842
+            }
+        ]
+    },
+    "dp+or": {}
+}
