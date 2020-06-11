@@ -12,7 +12,7 @@ class BaseConsumer():
         self.state = {}
         self.state["order_queue"] = []
 
-        #self.dummy_data = np.load('../reinforcemnet_learner/consumer_demand.npy')
+        #self.dummy_data = np.load('../reinforcement_learner/consumer_demand.npy')
 
     def reset(self):
         self._order_queue.clear()

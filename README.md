@@ -1,4 +1,4 @@
-# reinforcemnet_learner
+# reinforcement_learner
 
 Framework for training and testing reinforcement learning agents.
 
@@ -6,7 +6,7 @@ Framework for training and testing reinforcement learning agents.
 Install the inventory environment and dependencies using the following commands
 
 ```
-$ git clone https://gitlab.virtualbaker.com/MachineLearning/reinforcemnet_learner.git
+$ git clone https://gitlab.virtualbaker.com/MachineLearning/reinforcement_learner.git
 $ cd reinforcement_learner/
 $ pip install -e .
 ```

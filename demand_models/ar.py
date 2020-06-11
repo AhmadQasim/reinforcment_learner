@@ -10,7 +10,7 @@ from collections import Counter
 class AutoRegression:
     def __init__(self,
                  model_path="../models/ar_models.pickle",
-                 config_path="../reinforcemnet_learner/inventory.yaml",
+                 config_path="../reinforcement_learner/inventory.yaml",
                  seed=0,
                  steps=120,
                  days=10,

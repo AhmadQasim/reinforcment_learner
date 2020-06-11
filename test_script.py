@@ -7,7 +7,7 @@ import multiprocessing
 
 MODE = "out-1_20"
 TESTS = 20
-JSON_PATH = "./reinforcemnet_learner/result"
+JSON_PATH = "./reinforcement_learner/result"
 
 base_results = []
 dp_ar = []
@@ -20,11 +20,11 @@ def worker(seed, base_dict, dp_ar_dict, dp_or_dict):
     base_dict[seed] = base_agent.test(seed=seed)
 
     # run DP+AR
-    agent = DPAgent(config_path="./reinforcemnet_learner/inventory.yaml", loglevel=logging.CRITICAL)
+    agent = DPAgent(config_path="./reinforcement_learner/inventory.yaml", loglevel=logging.CRITICAL)
     dp_ar_dict[seed] = agent.train_with_env(seed=seed)
 
     # run DP+OR
-    # agent_test = DPAgent(config_path="./reinforcemnet_learner/inventory.yaml", loglevel=logging.CRITICAL)
+    # agent_test = DPAgent(config_path="./reinforcement_learner/inventory.yaml", loglevel=logging.CRITICAL)
     # dp_or_dict[seed] = agent_test.train_with_env(test_seed=seed)
 
 

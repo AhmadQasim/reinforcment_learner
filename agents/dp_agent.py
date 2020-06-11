@@ -16,7 +16,7 @@ class DynamicProgramming():
         #self.consumer_demand[0:50] = np.random.randint(31, size=(50,1))
 
         #consumer demand oracle
-        self.consumer_demand = np.load('../reinforcemnet_learner/consumer_demand.npy')
+        self.consumer_demand = np.load('../reinforcement_learner/consumer_demand.npy')
 
         self.value_function = np.zeros(self.env.episode_max_steps)
 

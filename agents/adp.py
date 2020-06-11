@@ -22,7 +22,7 @@ LEARNING_RATE = 1e-3
 NO_DELIVERY_PROB_IN_STATE_SPACE_SEARCH = 1e-1 # if this value is not -1, it creates actions without any delivery with
 # this probability while creating random states to approximate the values
 
-YAML = "./reinforcemnet_learner/inventory.yaml"
+YAML = "./reinforcement_learner/inventory.yaml"
 class DPAgent():
     def __init__(self, config_path, loglevel=logging.WARNING):
         with open(config_path, 'r') as f:
@@ -211,7 +211,7 @@ class DPAgent():
     def train_with_env(self, seed=None, test_seed=None):
         env = gym.make('gym_baking:Inventory-v0', config_path=YAML)
         env._consumer_model.fix_seed(seed)
-        predictor = AutoRegressiveDemandPredictor(config_path=YAML, seed=seed, steps=self.horizon, days=10, bins_size=1, model_path="./reinforcemnet_learner/models/ar_model_"+str(seed), load_model=True)
+        predictor = AutoRegressiveDemandPredictor(config_path=YAML, seed=seed, steps=self.horizon, days=10, bins_size=1, model_path="./reinforcement_learner/models/ar_model_"+str(seed), load_model=True)
         for episode in range(1):
             observation = env.reset()
             reward = 0

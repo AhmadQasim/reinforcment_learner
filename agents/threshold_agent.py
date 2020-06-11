@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import gym_baking.envs.utils as utils
 #from agents.base_agent import BaseAgent
 
-INVENTORY = "./reinforcemnet_learner/inventory.yaml"
+INVENTORY = "./reinforcement_learner/inventory.yaml"
 class BaselineAgent():
     def __init__(self):
         super().__init__()
